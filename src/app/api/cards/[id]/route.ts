@@ -9,7 +9,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, price, value } = body;
+    const { name, price, value, services } = body;
 
     if (!name || price === undefined || value === undefined) {
       return NextResponse.json({ error: "Tên thẻ, giá gốc và giá trị nạp là bắt buộc" }, { status: 400 });
@@ -32,6 +32,7 @@ export async function PUT(
         name,
         price: priceNum,
         value: valueNum,
+        services: Array.isArray(services) ? JSON.stringify(services) : undefined,
       },
     });
 

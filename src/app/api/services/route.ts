@@ -31,21 +31,24 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, price, tags } = body;
+    const { name, price, type, tags } = body;
 
     if (!name || price === undefined) {
-      return NextResponse.json({ error: "Tên dịch vụ và giá là bắt buộc" }, { status: 400 });
+      return NextResponse.json({ error: "Tên mặt hàng và giá là bắt buộc" }, { status: 400 });
     }
 
     const priceNum = Number(price);
     if (isNaN(priceNum) || priceNum < 0) {
-      return NextResponse.json({ error: "Giá dịch vụ không hợp lệ" }, { status: 400 });
+      return NextResponse.json({ error: "Giá không hợp lệ" }, { status: 400 });
     }
+
+    const serviceType = type === "product" ? "product" : "service";
 
     const service = await db.service.create({
       data: {
         name,
         price: priceNum,
+        type: serviceType,
         tags: Array.isArray(tags) ? JSON.stringify(tags) : JSON.stringify([]),
       },
     });
@@ -53,6 +56,6 @@ export async function POST(request: Request) {
     return NextResponse.json(service, { status: 201 });
   } catch (error: any) {
     console.error("POST Service Error:", error);
-    return NextResponse.json({ error: "Không thể tạo dịch vụ mới" }, { status: 500 });
+    return NextResponse.json({ error: "Không thể tạo mặt hàng mới" }, { status: 500 });
   }
 }

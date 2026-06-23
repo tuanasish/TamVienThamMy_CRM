@@ -18,6 +18,7 @@ export default async function ConfigPage() {
     id: s.id,
     name: s.name,
     price: Number(s.price),
+    type: s.type,
     tags: Array.isArray(s.tags) ? (s.tags as string[]) : JSON.parse((s.tags as string) || "[]"),
   }));
 
@@ -26,6 +27,7 @@ export default async function ConfigPage() {
     name: t.name,
     price: Number(t.price),
     value: Number(t.value),
+    services: Array.isArray(t.services) ? (t.services as string[]) : JSON.parse((t.services as string) || "[]"),
   }));
 
   return (

@@ -9,6 +9,7 @@ interface ServiceProp {
   id: string;
   name: string;
   price: number;
+  type: string; // 'service' or 'product'
   tags: string[];
 }
 
@@ -17,6 +18,7 @@ interface CardTemplateProp {
   name: string;
   price: number;
   value: number;
+  services: string[]; // array of allowed service/product IDs
 }
 
 interface SpaConfigTabsProps {
@@ -34,23 +36,27 @@ export default function SpaConfigTabs({
   // Service form states
   const [serviceName, setServiceName] = useState("");
   const [servicePrice, setServicePrice] = useState("");
+  const [serviceType, setServiceType] = useState("service"); // 'service' or 'product'
   const [serviceTags, setServiceTags] = useState("");
   
   // Card form states
   const [cardName, setCardName] = useState("");
   const [cardPrice, setCardPrice] = useState("");
   const [cardValue, setCardValue] = useState("");
+  const [cardServices, setCardServices] = useState<string[]>([]); // applicable items
 
   // Edit states
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editServiceName, setEditServiceName] = useState("");
   const [editServicePrice, setEditServicePrice] = useState("");
+  const [editServiceType, setEditServiceType] = useState("service");
   const [editServiceTags, setEditServiceTags] = useState("");
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editCardName, setEditCardName] = useState("");
   const [editCardPrice, setEditCardPrice] = useState("");
   const [editCardValue, setEditCardValue] = useState("");
+  const [editCardServices, setEditCardServices] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -71,15 +77,17 @@ export default function SpaConfigTabs({
         body: JSON.stringify({
           name: serviceName,
           price: Number(servicePrice),
+          type: serviceType,
           tags: tagsArray,
         }),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể tạo dịch vụ mới");
+      if (!response.ok) throw new Error(data.error || "Không thể tạo dịch vụ/sản phẩm mới");
 
       setServiceName("");
       setServicePrice("");
+      setServiceType("service");
       setServiceTags("");
       router.refresh();
     } catch (err: any) {
@@ -102,6 +110,7 @@ export default function SpaConfigTabs({
           name: cardName,
           price: Number(cardPrice),
           value: Number(cardValue),
+          services: cardServices,
         }),
       });
 
@@ -111,6 +120,7 @@ export default function SpaConfigTabs({
       setCardName("");
       setCardPrice("");
       setCardValue("");
+      setCardServices([]);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -124,6 +134,7 @@ export default function SpaConfigTabs({
     setEditingServiceId(sv.id);
     setEditServiceName(sv.name);
     setEditServicePrice(sv.price.toString());
+    setEditServiceType(sv.type || "service");
     setEditServiceTags(sv.tags.join(", "));
   };
 
@@ -141,12 +152,13 @@ export default function SpaConfigTabs({
         body: JSON.stringify({
           name: editServiceName,
           price: Number(editServicePrice),
+          type: editServiceType,
           tags: tagsArray,
         }),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể cập nhật dịch vụ");
+      if (!response.ok) throw new Error(data.error || "Không thể cập nhật thông tin");
 
       setEditingServiceId(null);
       router.refresh();
@@ -159,7 +171,7 @@ export default function SpaConfigTabs({
 
   // Delete Service Handler
   const handleDeleteService = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa dịch vụ này không?")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa mặt hàng này không?")) return;
     setError("");
     setLoading(true);
     try {
@@ -168,7 +180,7 @@ export default function SpaConfigTabs({
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể xóa dịch vụ");
+      if (!response.ok) throw new Error(data.error || "Không thể xóa mặt hàng");
 
       router.refresh();
     } catch (err: any) {
@@ -184,6 +196,7 @@ export default function SpaConfigTabs({
     setEditCardName(t.name);
     setEditCardPrice(t.price.toString());
     setEditCardValue(t.value.toString());
+    setEditCardServices(t.services || []);
   };
 
   const saveEditCard = async (id: string) => {
@@ -197,6 +210,7 @@ export default function SpaConfigTabs({
           name: editCardName,
           price: Number(editCardPrice),
           value: Number(editCardValue),
+          services: editCardServices,
         }),
       });
 
@@ -241,13 +255,13 @@ export default function SpaConfigTabs({
           onClick={() => { setActiveTab("services"); setError(""); }}
           className={`${styles.tab} ${activeTab === "services" ? styles.activeTab : ""}`}
         >
-          Danh mục dịch vụ
+          Dịch vụ & Sản phẩm
         </button>
         <button
           onClick={() => { setActiveTab("cards"); setError(""); }}
           className={`${styles.tab} ${activeTab === "cards" ? styles.activeTab : ""}`}
         >
-          Mẫu thẻ tài khoản
+          Thẻ thành viên
         </button>
       </div>
 
@@ -262,14 +276,29 @@ export default function SpaConfigTabs({
           <div className={styles.splitGrid}>
             {/* Form Column */}
             <form onSubmit={handleCreateService} className={styles.formBox}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm dịch vụ mới</h3>
+              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm mặt hàng mới</h3>
               
               <div className={styles.formGroup}>
-                <label className={styles.label}>Tên dịch vụ *</label>
+                <label className={styles.label}>Loại mặt hàng *</label>
+                <select
+                  className={styles.input}
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value)}
+                  required
+                  disabled={loading}
+                  style={{ appearance: "auto" }}
+                >
+                  <option value="service">Dịch vụ (Spa Treatment)</option>
+                  <option value="product">Sản phẩm (Cosmetics/Items)</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Tên mặt hàng *</label>
                 <input
                   type="text"
                   className={styles.input}
-                  placeholder="Chăm sóc da mặt chuyên sâu"
+                  placeholder={serviceType === "product" ? "Ví dụ: Kem chống nắng tế bào gốc" : "Ví dụ: Chăm sóc da mặt chuyên sâu"}
                   value={serviceName}
                   onChange={(e) => setServiceName(e.target.value)}
                   required
@@ -278,7 +307,7 @@ export default function SpaConfigTabs({
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Giá dịch vụ (đ) *</label>
+                <label className={styles.label}>Giá bán lẻ (đ) *</label>
                 <input
                   type="number"
                   className={styles.input}
@@ -303,27 +332,39 @@ export default function SpaConfigTabs({
               </div>
 
               <button type="submit" className={styles.submitBtn} disabled={loading}>
-                <Plus size={16} /> Lưu dịch vụ
+                <Plus size={16} /> Lưu mặt hàng
               </button>
             </form>
 
             {/* List Column */}
             <div className={styles.listColumn}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Danh sách dịch vụ hiện có</h3>
+              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Danh sách mặt hàng hiện có</h3>
               {initialServices.length === 0 ? (
-                <div className={styles.emptyText}>Chưa có dịch vụ nào trong hệ thống.</div>
+                <div className={styles.emptyText}>Chưa có dịch vụ/sản phẩm nào trong hệ thống.</div>
               ) : (
                 initialServices.map((sv) => (
                   <div key={sv.id} className={styles.listItem} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch" }}>
                     {editingServiceId === sv.id ? (
                       /* Editing Mode */
                       <div className={styles.formBox} style={{ border: "none", padding: 0, gap: "0.85rem" }}>
+                        <div className={styles.formGroup}>
+                          <label className={styles.label} style={{ fontSize: "0.75rem" }}>Loại</label>
+                          <select
+                            className={styles.input}
+                            value={editServiceType}
+                            onChange={(e) => setEditServiceType(e.target.value)}
+                            style={{ appearance: "auto" }}
+                          >
+                            <option value="service">Dịch vụ</option>
+                            <option value="product">Sản phẩm</option>
+                          </select>
+                        </div>
                         <input
                           type="text"
                           className={styles.input}
                           value={editServiceName}
                           onChange={(e) => setEditServiceName(e.target.value)}
-                          placeholder="Tên dịch vụ"
+                          placeholder="Tên mặt hàng"
                           required
                         />
                         <input
@@ -331,7 +372,7 @@ export default function SpaConfigTabs({
                           className={styles.input}
                           value={editServicePrice}
                           onChange={(e) => setEditServicePrice(e.target.value)}
-                          placeholder="Giá dịch vụ (đ)"
+                          placeholder="Giá bán lẻ (đ)"
                           required
                         />
                         <input
@@ -366,7 +407,21 @@ export default function SpaConfigTabs({
                       /* Display Mode */
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div className={styles.itemInfo}>
-                          <span className={styles.itemName}>{sv.name}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span className={styles.itemName}>{sv.name}</span>
+                            <span 
+                              className={sv.type === "product" ? styles.tag : styles.tag} 
+                              style={{ 
+                                fontSize: "0.65rem", 
+                                padding: "0.1rem 0.35rem", 
+                                borderRadius: "50px", 
+                                background: sv.type === "product" ? "rgba(40, 167, 69, 0.1)" : "rgba(223, 183, 108, 0.1)",
+                                color: sv.type === "product" ? "#28a745" : "var(--accent-gold)"
+                              }}
+                            >
+                              {sv.type === "product" ? "Sản phẩm" : "Dịch vụ"}
+                            </span>
+                          </div>
                           <div className={styles.tagsList}>
                             {sv.tags.map((tag) => (
                               <span key={tag} className={styles.tag}>
@@ -383,14 +438,14 @@ export default function SpaConfigTabs({
                             <button
                               onClick={() => startEditService(sv)}
                               style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Sửa dịch vụ"
+                              title="Sửa mặt hàng"
                             >
                               <Edit2 size={16} />
                             </button>
                             <button
                               onClick={() => handleDeleteService(sv.id)}
                               style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Xóa dịch vụ"
+                              title="Xóa mặt hàng"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -407,7 +462,7 @@ export default function SpaConfigTabs({
           <div className={styles.splitGrid}>
             {/* Form Column */}
             <form onSubmit={handleCreateCard} className={styles.formBox}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm mẫu thẻ nạp mới</h3>
+              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm thẻ thành viên mới</h3>
 
               <div className={styles.formGroup}>
                 <label className={styles.label}>Tên thẻ nạp *</label>
@@ -423,7 +478,7 @@ export default function SpaConfigTabs({
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Giá gốc khách thực trả (đ) *</label>
+                <label className={styles.label}>Giá bán thẻ (khách thực trả) (đ) *</label>
                 <input
                   type="number"
                   className={styles.input}
@@ -436,7 +491,7 @@ export default function SpaConfigTabs({
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Giá trị thực nhận trong thẻ (đ) *</label>
+                <label className={styles.label}>Mệnh giá nạp (giá trị thực nhận) (đ) *</label>
                 <input
                   type="number"
                   className={styles.input}
@@ -448,14 +503,41 @@ export default function SpaConfigTabs({
                 />
               </div>
 
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Dịch vụ/Sản phẩm áp dụng (Để trống = Áp dụng tất cả)</label>
+                <div style={{ maxHeight: "180px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.75rem", borderRadius: "var(--radius-sm)", marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {initialServices.length === 0 ? (
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Chưa có dịch vụ/sản phẩm nào để liên kết.</span>
+                  ) : (
+                    initialServices.map((sv) => (
+                      <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={cardServices.includes(sv.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCardServices([...cardServices, sv.id]);
+                            } else {
+                              setCardServices(cardServices.filter((id) => id !== sv.id));
+                            }
+                          }}
+                          disabled={loading}
+                        />
+                        {sv.name} ({sv.type === "product" ? "SP" : "DV"})
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <button type="submit" className={styles.submitBtn} disabled={loading}>
-                <Plus size={16} /> Lưu mẫu thẻ
+                <Plus size={16} /> Lưu thẻ thành viên
               </button>
             </form>
 
             {/* List Column */}
             <div className={styles.listColumn}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Danh sách mẫu thẻ nạp hiện có</h3>
+              <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Danh sách mẫu thẻ thành viên</h3>
               {initialTemplates.length === 0 ? (
                 <div className={styles.emptyText}>Chưa có mẫu thẻ nạp nào.</div>
               ) : (
@@ -477,7 +559,7 @@ export default function SpaConfigTabs({
                           className={styles.input}
                           value={editCardPrice}
                           onChange={(e) => setEditCardPrice(e.target.value)}
-                          placeholder="Giá gốc thực trả (đ)"
+                          placeholder="Giá bán thực trả (đ)"
                           required
                         />
                         <input
@@ -485,9 +567,31 @@ export default function SpaConfigTabs({
                           className={styles.input}
                           value={editCardValue}
                           onChange={(e) => setEditCardValue(e.target.value)}
-                          placeholder="Giá trị thực nhận (đ)"
+                          placeholder="Mệnh giá thực nhận (đ)"
                           required
                         />
+                        <div className={styles.formGroup}>
+                          <label className={styles.label} style={{ fontSize: "0.75rem" }}>Danh mục áp dụng (Để trống = Áp dụng tất cả)</label>
+                          <div style={{ maxHeight: "120px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.5rem", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                            {initialServices.map((sv) => (
+                              <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", fontWeight: 500 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={editCardServices.includes(sv.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setEditCardServices([...editCardServices, sv.id]);
+                                    } else {
+                                      setEditCardServices(editCardServices.filter((id) => id !== sv.id));
+                                    }
+                                  }}
+                                  disabled={loading}
+                                />
+                                {sv.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                         <div style={{ display: "flex", gap: "0.5rem" }}>
                           <button
                             type="button"
@@ -511,38 +615,55 @@ export default function SpaConfigTabs({
                       </div>
                     ) : (
                       /* Display Mode */
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div className={styles.itemInfo}>
-                          <span className={styles.itemName}>{t.name}</span>
-                          <span className={styles.itemPrice}>
-                            Thực trả: <strong>{t.price.toLocaleString("vi-VN")}đ</strong>
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                          <div style={{ textAlign: "right" }}>
-                            <span className={styles.itemPrice} style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                              Số dư nạp:
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div className={styles.itemInfo}>
+                            <span className={styles.itemName}>{t.name}</span>
+                            <span className={styles.itemPrice}>
+                              Thực trả: <strong>{t.price.toLocaleString("vi-VN")}đ</strong>
                             </span>
-                            <strong style={{ color: "var(--accent-gold)", fontSize: "1.1rem" }}>
-                              {t.value.toLocaleString("vi-VN")}đ
-                            </strong>
                           </div>
-                          <div style={{ display: "flex", gap: "0.35rem" }}>
-                            <button
-                              onClick={() => startEditCard(t)}
-                              style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Sửa mẫu thẻ"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCard(t.id)}
-                              style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Xóa mẫu thẻ"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                            <div style={{ textAlign: "right" }}>
+                              <span className={styles.itemPrice} style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                Số dư nạp:
+                              </span>
+                              <strong style={{ color: "var(--accent-gold)", fontSize: "1.1rem" }}>
+                                {t.value.toLocaleString("vi-VN")}đ
+                              </strong>
+                            </div>
+                            <div style={{ display: "flex", gap: "0.35rem" }}>
+                              <button
+                                onClick={() => startEditCard(t)}
+                                style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                title="Sửa mẫu thẻ"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCard(t.id)}
+                                style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                title="Xóa mẫu thẻ"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
+                        </div>
+
+                        {/* List of Allowed Items */}
+                        <div style={{ borderTop: "1px dashed var(--border-color)", paddingTop: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                          Áp dụng cho:{" "}
+                          {t.services && t.services.length > 0 ? (
+                            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                              {t.services
+                                .map((id) => initialServices.find((s) => s.id === id)?.name)
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          ) : (
+                            <span style={{ fontStyle: "italic", color: "var(--accent-gold)" }}>Tất cả dịch vụ & sản phẩm</span>
+                          )}
                         </div>
                       </div>
                     )}

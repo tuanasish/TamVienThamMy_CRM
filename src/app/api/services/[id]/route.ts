@@ -9,22 +9,25 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, price, tags } = body;
+    const { name, price, type, tags } = body;
 
     if (!name || price === undefined) {
-      return NextResponse.json({ error: "Tên dịch vụ và giá là bắt buộc" }, { status: 400 });
+      return NextResponse.json({ error: "Tên mặt hàng và giá là bắt buộc" }, { status: 400 });
     }
 
     const priceNum = Number(price);
     if (isNaN(priceNum) || priceNum < 0) {
-      return NextResponse.json({ error: "Giá dịch vụ không hợp lệ" }, { status: 400 });
+      return NextResponse.json({ error: "Giá không hợp lệ" }, { status: 400 });
     }
+
+    const serviceType = type === "product" ? "product" : "service";
 
     const updated = await db.service.update({
       where: { id },
       data: {
         name,
         price: priceNum,
+        type: serviceType,
         tags: Array.isArray(tags) ? JSON.stringify(tags) : JSON.stringify([]),
       },
     });
@@ -32,7 +35,7 @@ export async function PUT(
     return NextResponse.json(updated);
   } catch (error: any) {
     console.error("PUT Service Error:", error);
-    return NextResponse.json({ error: "Không thể cập nhật dịch vụ này" }, { status: 500 });
+    return NextResponse.json({ error: "Không thể cập nhật mặt hàng này" }, { status: 500 });
   }
 }
 
