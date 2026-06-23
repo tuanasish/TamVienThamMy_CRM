@@ -19,9 +19,6 @@ export default function Home() {
               </div>
               <div style={{ textAlign: "left" }}>
                 <div>Cán bộ nhân viên</div>
-                <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "normal" }}>
-                  Quản lý khách hàng, bill, báo cáo & cài đặt
-                </div>
               </div>
             </div>
             <ChevronRight className={styles.arrowIcon} size={18} />
@@ -34,9 +31,6 @@ export default function Home() {
               </div>
               <div style={{ textAlign: "left" }}>
                 <div>Khách hàng</div>
-                <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "normal" }}>
-                  Xem số dư thẻ nạp, liệu trình & lịch sử dịch vụ
-                </div>
               </div>
             </div>
             <ChevronRight className={styles.arrowIcon} size={18} />
