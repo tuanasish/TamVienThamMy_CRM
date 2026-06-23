@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
 import { Wallet, Sparkles, Activity, Tag } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,39 @@ export default async function CustomerDashboard() {
             ✨ {currentTier}
           </div>
         </div>
+      </section>
+      
+      {/* Booking Quick Link Banner */}
+      <section style={{
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        padding: "1.25rem 2rem",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "1rem",
+        boxShadow: "var(--shadow-sm)"
+      }}>
+        <div>
+          <h3 style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)" }}>Đặt lịch hẹn trị liệu trực tuyến</h3>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+            Tiết kiệm thời gian chờ đợi. Lựa chọn liệu trình và giờ đến mong muốn ngay tại đây.
+          </p>
+        </div>
+        <Link href="/customer/booking" style={{
+          padding: "0.6rem 1.5rem",
+          background: "var(--grad-premium)",
+          color: "white",
+          borderRadius: "var(--radius-sm)",
+          fontWeight: 700,
+          fontSize: "0.9rem",
+          textDecoration: "none",
+          boxShadow: "0 4px 12px rgba(197, 160, 89, 0.2)"
+        }}>
+          Đặt lịch ngay
+        </Link>
       </section>
 
       {/* Primary Details Grid */}
