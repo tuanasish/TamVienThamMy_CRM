@@ -1,0 +1,652 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import styles from "@/app/staff/appointments/page.module.css";
+import {
+  Search,
+  Plus,
+  Calendar,
+  Clock,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  Loader2,
+  AlertCircle
+} from "lucide-react";
+
+interface CustomerProp {
+  id: string;
+  fullName: string;
+  phone: string;
+}
+
+interface ServiceProp {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface AppointmentProp {
+  id: string;
+  customerId: string;
+  customer: {
+    id: string;
+    fullName: string;
+    phone: string;
+  };
+  dateTime: string;
+  status: string;
+  notes?: string | null;
+}
+
+interface AppointmentsManagerProps {
+  initialAppointments: AppointmentProp[];
+  customers: CustomerProp[];
+  services: ServiceProp[];
+}
+
+export default function AppointmentsManager({
+  initialAppointments,
+  customers,
+  services,
+}: AppointmentsManagerProps) {
+  const router = useRouter();
+  const [appointments, setAppointments] = useState<AppointmentProp[]>(initialAppointments);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Filters State
+  const [filterDate, setFilterDate] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Booking Modal State
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [bookCustomer, setBookCustomer] = useState("");
+  const [bookDateTime, setBookDateTime] = useState("");
+  const [bookServiceId, setBookServiceId] = useState("");
+  const [bookNotes, setBookNotes] = useState("");
+
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAppt, setEditingAppt] = useState<AppointmentProp | null>(null);
+  const [editDateTime, setEditDateTime] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+
+  // Search/Filter matching
+  const filteredAppointments = appointments.filter((appt) => {
+    // 1. Date match (dateTime is ISO string, we compare date part YYYY-MM-DD)
+    if (filterDate) {
+      const apptDateStr = appt.dateTime.split("T")[0];
+      if (apptDateStr !== filterDate) return false;
+    }
+
+    // 2. Status match
+    if (filterStatus && appt.status !== filterStatus) {
+      return false;
+    }
+
+    // 3. Search match (customer name or phone)
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      const nameMatch = appt.customer.fullName.toLowerCase().includes(lowerSearch);
+      const phoneMatch = appt.customer.phone.includes(lowerSearch);
+      if (!nameMatch && !phoneMatch) return false;
+    }
+
+    return true;
+  });
+
+  // Action: Check in appointment
+  const handleCheckIn = async (id: string) => {
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const response = await fetch(`/api/appointments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "checked_in" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể Check-in");
+
+      setAppointments(
+        appointments.map((appt) => (appt.id === id ? { ...appt, status: "checked_in" } : appt))
+      );
+      setSuccessMsg("Đã check-in thành công! Khách hàng đã được đẩy sang quầy bán hàng.");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Action: Cancel appointment
+  const handleCancel = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn hủy lịch hẹn này?")) return;
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const response = await fetch(`/api/appointments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể hủy lịch hẹn");
+
+      setAppointments(
+        appointments.map((appt) => (appt.id === id ? { ...appt, status: "cancelled" } : appt))
+      );
+      setSuccessMsg("Đã hủy lịch hẹn.");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Action: Delete appointment
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn XÓA LỊCH HẸN này khỏi hệ thống? Hành động này không thể hoàn tác.")) return;
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const response = await fetch(`/api/appointments/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể xóa lịch hẹn");
+
+      setAppointments(appointments.filter((appt) => appt.id !== id));
+      setSuccessMsg("Đã xóa lịch hẹn thành công.");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Action: Create Appointment
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookCustomer || !bookDateTime) {
+      setError("Vui lòng chọn khách hàng và thời gian hẹn");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const selectedService = services.find((s) => s.id === bookServiceId);
+      const apptNotes = bookServiceId
+        ? (bookNotes ? `${selectedService?.name}. Ghi chú: ${bookNotes}` : `${selectedService?.name}`)
+        : bookNotes;
+
+      const response = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: bookCustomer,
+          dateTime: bookDateTime,
+          notes: apptNotes,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể đặt lịch");
+
+      // Prepend the new appointment to the local list
+      const newAppt: AppointmentProp = {
+        id: data.id,
+        customerId: data.customerId,
+        customer: data.customer,
+        dateTime: data.dateTime,
+        status: data.status,
+        notes: data.notes,
+      };
+
+      setAppointments([newAppt, ...appointments]);
+      setSuccessMsg("Đã tạo lịch hẹn thành công!");
+      
+      // Reset form
+      setBookCustomer("");
+      setBookDateTime("");
+      setBookServiceId("");
+      setBookNotes("");
+      setShowBookModal(false);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Action: Save Edited Appointment
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAppt || !editDateTime) return;
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const response = await fetch(`/api/appointments/${editingAppt.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dateTime: editDateTime,
+          notes: editNotes,
+          status: editStatus,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể cập nhật lịch hẹn");
+
+      setAppointments(
+        appointments.map((appt) =>
+          appt.id === editingAppt.id
+            ? {
+                ...appt,
+                dateTime: data.dateTime,
+                notes: data.notes,
+                status: data.status,
+              }
+            : appt
+        )
+      );
+
+      setSuccessMsg("Đã cập nhật lịch hẹn thành công.");
+      setShowEditModal(false);
+      setEditingAppt(null);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditModal = (appt: AppointmentProp) => {
+    setEditingAppt(appt);
+    // Format dateTime back to YYYY-MM-DDTHH:MM for input datetime-local
+    const date = new Date(appt.dateTime);
+    // Adjust timezone offset
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+    setEditDateTime(localISOTime);
+    setEditNotes(appt.notes || "");
+    setEditStatus(appt.status);
+    setShowEditModal(true);
+  };
+
+  const clearFilters = () => {
+    setFilterDate("");
+    setFilterStatus("");
+    setSearchTerm("");
+  };
+
+  return (
+    <div className={styles.managerContainer}>
+      {/* Notifications */}
+      {error && (
+        <div style={{ color: "#dc3545", background: "rgba(220,53,69,0.1)", padding: "1rem", borderRadius: "var(--radius-sm)", fontSize: "0.9rem", fontWeight: "600", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ color: "#28a745", background: "rgba(40,167,69,0.1)", padding: "1rem", borderRadius: "var(--radius-sm)", fontSize: "0.9rem", fontWeight: "600", marginBottom: "1rem" }}>
+          {successMsg}
+        </div>
+      )}
+
+      {/* Control Bar (Filters and actions) */}
+      <section className={styles.controlBar}>
+        <div className={styles.filterRow}>
+          <div className={styles.filterGroup}>
+            <label className={styles.label}>Lọc theo ngày</label>
+            <input
+              type="date"
+              className={styles.input}
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.filterGroup}>
+            <label className={styles.label}>Trạng thái</label>
+            <select
+              className={styles.select}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="pending">Chờ khách đến</option>
+              <option value="checked_in">Đã check-in</option>
+              <option value="completed">Đã hoàn thành</option>
+              <option value="cancelled">Đã hủy</option>
+            </select>
+          </div>
+
+          <div style={{ alignSelf: "flex-end", height: "fit-content" }}>
+            {(filterDate || filterStatus || searchTerm) && (
+              <button onClick={clearFilters} className={styles.clearFiltersBtn}>
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.actionRow}>
+          <div className={styles.searchBox}>
+            <Search size={16} className={styles.searchIcon} />
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Tìm khách hàng hoặc số điện thoại..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <button onClick={() => setShowBookModal(true)} className={styles.addBtn}>
+            <Plus size={18} /> Đặt lịch hẹn mới
+          </button>
+        </div>
+      </section>
+
+      {/* Table of Appointments */}
+      <section className={styles.tableContainer}>
+        {filteredAppointments.length === 0 ? (
+          <div className={styles.emptyState}>
+            Không tìm thấy lịch hẹn nào khớp với bộ lọc đang chọn.
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th className={styles.th}>Thời gian</th>
+                <th className={styles.th}>Khách hàng</th>
+                <th className={styles.th}>Ghi chú dịch vụ mong muốn</th>
+                <th className={styles.th}>Trạng thái</th>
+                <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAppointments.map((appt) => {
+                const dateObj = new Date(appt.dateTime);
+                const formattedDate = dateObj.toLocaleDateString("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                });
+                const formattedTime = dateObj.toLocaleTimeString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <tr key={appt.id} className={styles.tr}>
+                    <td className={styles.td}>
+                      <div style={{ fontWeight: "700" }}>{formattedTime}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.15rem" }}>
+                        <Clock size={12} />
+                        {formattedDate}
+                      </div>
+                    </td>
+                    <td className={styles.td}>
+                      <div style={{ fontWeight: 600 }}>{appt.customer.fullName}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{appt.customer.phone}</div>
+                    </td>
+                    <td className={styles.td} style={{ maxWidth: "250px", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {appt.notes ? (
+                        <span style={{ fontStyle: "italic", fontSize: "0.9rem" }}>"{appt.notes}"</span>
+                      ) : (
+                        <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>Không ghi chú</span>
+                      )}
+                    </td>
+                    <td className={styles.td}>
+                      {appt.status === "pending" && <span className={`${styles.badge} ${styles.badgePending}`}>Chờ khách đến</span>}
+                      {appt.status === "checked_in" && <span className={`${styles.badge} ${styles.badgeCheckedIn}`}>Đã Check-in</span>}
+                      {appt.status === "completed" && <span className={`${styles.badge} ${styles.badgeCompleted}`}>Đã xong</span>}
+                      {appt.status === "cancelled" && <span className={`${styles.badge} ${styles.badgeCancelled}`}>Đã hủy</span>}
+                    </td>
+                    <td className={styles.td} style={{ textAlign: "right" }}>
+                      <div className={styles.btnGroup}>
+                        {appt.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => handleCheckIn(appt.id)}
+                              disabled={loading}
+                              className={`${styles.actionBtn} ${styles.btnCheckIn}`}
+                              title="Check-in cho khách"
+                            >
+                              <Check size={14} /> Check in
+                            </button>
+                            <button
+                              onClick={() => handleCancel(appt.id)}
+                              disabled={loading}
+                              className={`${styles.actionBtn} ${styles.btnCancel}`}
+                              title="Hủy lịch hẹn"
+                            >
+                              Hủy
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          onClick={() => openEditModal(appt)}
+                          disabled={loading}
+                          className={`${styles.actionBtn}`}
+                          style={{ background: "transparent", color: "var(--accent-gold)" }}
+                          title="Sửa thông tin"
+                        >
+                          <Edit2 size={14} /> Sửa
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(appt.id)}
+                          disabled={loading}
+                          className={`${styles.actionBtn} ${styles.btnDelete}`}
+                          title="Xóa lịch hẹn"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* MODAL 1: BOOK NEW APPOINTMENT */}
+      {showBookModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Đặt lịch hẹn mới</h3>
+              <button onClick={() => setShowBookModal(false)} className={styles.closeBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className={styles.form}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Khách hàng *</label>
+                <select
+                  className={styles.select}
+                  value={bookCustomer}
+                  onChange={(e) => setBookCustomer(e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn khách hàng --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.fullName} ({c.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Thời gian hẹn *</label>
+                <input
+                  type="datetime-local"
+                  className={styles.input}
+                  value={bookDateTime}
+                  onChange={(e) => setBookDateTime(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Gợi ý dịch vụ trị liệu</label>
+                <select
+                  className={styles.select}
+                  value={bookServiceId}
+                  onChange={(e) => setBookServiceId(e.target.value)}
+                >
+                  <option value="">-- Chọn dịch vụ mong muốn (Tùy chọn) --</option>
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.price.toLocaleString("vi-VN")}đ)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Ghi chú thêm</label>
+                <textarea
+                  className={styles.textarea}
+                  rows={3}
+                  placeholder="Ví dụ: Khách hẹn làm cùng bạn bè, yêu cầu phòng VIP..."
+                  value={bookNotes}
+                  onChange={(e) => setBookNotes(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => setShowBookModal(false)}
+                  className={styles.cancelModalBtn}
+                  disabled={loading}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className={styles.submitModalBtn}
+                  disabled={loading}
+                  style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}
+                >
+                  {loading && <Loader2 size={14} className={styles.spin} />}
+                  Đặt lịch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: EDIT APPOINTMENT */}
+      {showEditModal && editingAppt && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Sửa thông tin lịch hẹn</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingAppt(null); }} className={styles.closeBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className={styles.form}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Khách hàng</label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  value={`${editingAppt.customer.fullName} (${editingAppt.customer.phone})`}
+                  disabled
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Thời gian hẹn *</label>
+                <input
+                  type="datetime-local"
+                  className={styles.input}
+                  value={editDateTime}
+                  onChange={(e) => setEditDateTime(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Trạng thái lịch hẹn</label>
+                <select
+                  className={styles.select}
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  required
+                >
+                  <option value="pending">Chờ khách đến</option>
+                  <option value="checked_in">Đã check-in</option>
+                  <option value="completed">Đã hoàn thành</option>
+                  <option value="cancelled">Đã hủy</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Ghi chú chi tiết</label>
+                <textarea
+                  className={styles.textarea}
+                  rows={4}
+                  placeholder="Ghi chú dịch vụ trị liệu hoặc yêu cầu..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingAppt(null); }}
+                  className={styles.cancelModalBtn}
+                  disabled={loading}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className={styles.submitModalBtn}
+                  disabled={loading}
+                  style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}
+                >
+                  {loading && <Loader2 size={14} className={styles.spin} />}
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
