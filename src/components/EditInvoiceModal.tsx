@@ -217,8 +217,7 @@ export default function EditInvoiceModal({
     <>
       <button
         onClick={handleOpen}
-        className={styles.actionBtnSmall}
-        style={{ background: "rgba(197,160,89,0.15)", color: "var(--accent-gold)" }}
+        className={`${styles.actionBtnSmall} ${styles.btnEdit}`}
         title="Chỉnh sửa hóa đơn"
       >
         <Edit size={14} /> Sửa

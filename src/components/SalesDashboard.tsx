@@ -342,8 +342,7 @@ export default function SalesDashboard({
                 setNewApptTime("09:00");
                 setShowAppointmentModal(true);
               }} 
-              className={styles.actionBtnSmall}
-              style={{ background: "var(--grad-premium)", color: "white", padding: "0.4rem 0.8rem", borderRadius: "4px", fontWeight: "700" }}
+              className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
             >
               <Plus size={14} style={{ marginRight: "0.25rem" }} /> Đặt lịch hẹn
             </button>
@@ -388,9 +387,9 @@ export default function SalesDashboard({
                           )}
                         </td>
                         <td>
-                          {appt.status === "pending" && <span className={`${styles.badge} ${styles.badgePending}`}>Chờ khách đến</span>}
-                          {appt.status === "checked_in" && <span className={`${styles.badge} ${styles.badgeCheckedIn}`}>Đã Check-in</span>}
-                          {appt.status === "completed" && <span className={`${styles.badge} ${styles.badgeCompleted}`}>Đã xong</span>}
+                          {appt.status === "pending" && <span className={`${styles.badge} ${styles.badgePending}`}>Chờ đến</span>}
+                          {appt.status === "checked_in" && <span className={`${styles.badge} ${styles.badgeCheckedIn}`}>Đã đến</span>}
+                          {appt.status === "completed" && <span className={`${styles.badge} ${styles.badgeCompleted}`}>Hoàn tất</span>}
                           {appt.status === "cancelled" && <span className={`${styles.badge} ${styles.badgeCancelled}`}>Đã hủy</span>}
                         </td>
                         <td style={{ textAlign: "right" }}>
@@ -400,8 +399,7 @@ export default function SalesDashboard({
                                 <button
                                   onClick={() => handleCheckIn(appt.id)}
                                   disabled={loading}
-                                  className={styles.actionBtnSmall}
-                                  style={{ background: "#28a745", color: "white" }}
+                                  className={`${styles.actionBtnSmall} ${styles.btnSuccess}`}
                                   title="Check in cho khách"
                                 >
                                   <Check size={14} /> Check in
@@ -409,8 +407,7 @@ export default function SalesDashboard({
                                 <button
                                   onClick={() => handleCancelAppointment(appt.id)}
                                   disabled={loading}
-                                  className={styles.actionBtnSmall}
-                                  style={{ background: "transparent", border: "1px solid var(--border-color)", color: "var(--accent-rose)" }}
+                                  className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
                                   title="Hủy lịch hẹn"
                                 >
                                   Hủy
@@ -423,8 +420,7 @@ export default function SalesDashboard({
                                   setActiveAppointment(appt);
                                   setShowInvoiceModal(true);
                                 }}
-                                className={styles.actionBtnSmall}
-                                style={{ background: "var(--grad-premium)", color: "white" }}
+                                className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
                                 title="Tạo hóa đơn cho khách"
                               >
                                 <FileText size={14} /> Tạo hóa đơn
@@ -518,8 +514,7 @@ export default function SalesDashboard({
                           <button
                             onClick={() => handleDeleteInvoice(inv.id)}
                             disabled={loading}
-                            className={styles.actionBtnSmall}
-                            style={{ background: "transparent", border: "1px solid var(--border-color)", color: "var(--accent-rose)" }}
+                            className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
                             title="Xóa hóa đơn"
                           >
                             <Trash2 size={14} /> Xóa
