@@ -102,12 +102,16 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .itemDetails {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 200px;
+  flex: 1 1 auto;
 }
 
 .itemName {
@@ -123,6 +127,7 @@
 .itemActions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -627,4 +632,123 @@
   color: var(--text-secondary);
   margin-top: 0.15rem;
 }
+
+.itemActionRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.widthSessions {
+  width: 90px;
+}
+
+.widthQty {
+  width: 70px;
+}
+
+.widthDiscount {
+  width: 120px;
+}
+
+.widthStaff {
+  width: 160px;
+}
+
+.actionInput {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.85rem !important;
+}
+
+.actionInputCenter {
+  text-align: center;
+}
+
+.removeItemBtn {
+  cursor: pointer;
+  color: var(--accent-rose);
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.removeItemBtn:hover {
+  transform: scale(1.15);
+}
+
+@media (max-width: 768px) {
+  .selectedItemRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .itemDetails {
+    min-width: 100%;
+  }
+  .itemActions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    gap: 0.75rem;
+  }
+  .itemActionRow {
+    width: 100% !important;
+    justify-content: space-between;
+  }
+  .widthSessions,
+  .widthQty,
+  .widthDiscount,
+  .widthStaff {
+    width: 100% !important;
+  }
+  .removeItemBtn {
+    grid-column: span 2;
+    justify-content: flex-end;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 0.5rem;
+    margin-left: 0;
+    width: 100%;
+  }
+  .checkboxItemsContainer {
+    grid-template-columns: 1fr;
+    max-height: 180px;
+    padding: 0.75rem;
+  }
+  .modalContent {
+    padding: 1.25rem;
+    max-height: 90vh;
+  }
+  
+  /* Table to Card conversion for mobile viewport */
+  .table thead {
+    display: none;
+  }
+  .table, .table tbody, .table tr, .table td {
+    display: block;
+    width: 100%;
+  }
+  .table tr {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .table td {
+    padding: 0.5rem 0;
+    border-bottom: none;
+    text-align: left !important;
+  }
+  .table td:last-child {
+    border-top: 1px dashed var(--border-color);
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+  }
+}
+
 

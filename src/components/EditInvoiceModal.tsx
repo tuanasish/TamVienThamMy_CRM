@@ -279,32 +279,30 @@ export default function EditInvoiceModal({
               <div className={styles.sectionTitle}>Mặt hàng trong hóa đơn</div>
               <div className={styles.selectedItemsList} style={{ marginBottom: "1.5rem" }}>
                 {editItems.map((item) => (
-                  <div key={item.id} className={styles.selectedItemRow} style={{ flexWrap: "wrap", gap: "1rem" }}>
-                    <div className={styles.itemDetails} style={{ minWidth: "180px", flex: "1 1 auto" }}>
+                  <div key={item.id} className={styles.selectedItemRow}>
+                    <div className={styles.itemDetails}>
                       <span className={styles.itemName}>{item.name}</span>
                       <span className={styles.itemPrice}>
                         Đơn giá: {item.price.toLocaleString("vi-VN")}đ | SL: <strong>{item.quantity}</strong>
                       </span>
                     </div>
 
-                    <div className={styles.itemActions} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem" }}>
-                      <div className={styles.formGroup} style={{ width: "120px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                    <div className={styles.itemActions}>
+                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
                         <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
                         <input
                           type="text"
-                          className={styles.input}
-                          style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                          className={`${styles.input} ${styles.actionInput}`}
                           value={item.discount}
                           onChange={(e) => handleItemDiscountChange(item.id, e.target.value)}
                           disabled={loading}
                         />
                       </div>
 
-                      <div className={styles.formGroup} style={{ width: "160px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
                         <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
                         <select
-                          className={styles.select}
-                          style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                          className={`${styles.select} ${styles.actionInput}`}
                           value={item.staffId}
                           onChange={(e) => handleItemStaffChange(item.id, e.target.value)}
                           disabled={loading}

@@ -621,22 +621,21 @@ export default function CreateInvoiceForm({
             <div className={styles.emptyText} style={{ padding: "1.5rem" }}>Chưa có mặt hàng nào được chọn.</div>
           ) : (
             selectedItems.map((item) => (
-              <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow} style={{ flexWrap: "wrap", gap: "1rem" }}>
-                <div className={styles.itemDetails} style={{ minWidth: "200px", flex: "1 1 auto" }}>
+              <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow}>
+                <div className={styles.itemDetails}>
                   <span className={styles.itemName}>{item.name}</span>
                   <span className={styles.itemPrice}>
                     Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong>
                   </span>
                 </div>
 
-                <div className={styles.itemActions} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem" }}>
+                <div className={styles.itemActions}>
                   {item.itemType === "service" && (
-                    <div className={styles.formGroup} style={{ width: "90px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthSessions}`}>
                       <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
                       <input
                         type="number"
-                        className={styles.input}
-                        style={{ padding: "0.25rem 0.5rem", textAlign: "center", fontSize: "0.85rem" }}
+                        className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
                         value={item.totalSessions || 1}
                         onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
                         min="1"
@@ -645,12 +644,11 @@ export default function CreateInvoiceForm({
                     </div>
                   )}
 
-                  <div className={styles.formGroup} style={{ width: "70px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthQty}`}>
                     <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
                     <input
                       type="number"
-                      className={styles.input}
-                      style={{ padding: "0.25rem 0.5rem", textAlign: "center", fontSize: "0.85rem" }}
+                      className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
                       value={item.quantity}
                       onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
                       min="1"
@@ -659,12 +657,11 @@ export default function CreateInvoiceForm({
                   </div>
 
                   {/* CUSTOM DISCOUNT PER ITEM */}
-                  <div className={styles.formGroup} style={{ width: "120px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
                     <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
                     <input
                       type="text"
-                      className={styles.input}
-                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                      className={`${styles.input} ${styles.actionInput}`}
                       placeholder="0"
                       value={item.discount}
                       onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
@@ -673,11 +670,10 @@ export default function CreateInvoiceForm({
                   </div>
 
                   {/* STAFF / SALE SELECTION PER ITEM */}
-                  <div className={styles.formGroup} style={{ width: "160px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
                     <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
                     <select
-                      className={styles.select}
-                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                      className={`${styles.select} ${styles.actionInput}`}
                       value={item.staffId}
                       onChange={(e) => handleItemStaffChange(item.id, item.itemType, e.target.value)}
                       disabled={loading}
@@ -694,7 +690,7 @@ export default function CreateInvoiceForm({
 
                   <Trash2
                     size={16}
-                    style={{ cursor: "pointer", color: "var(--accent-rose)", marginLeft: "0.5rem" }}
+                    className={styles.removeItemBtn}
                     onClick={() => handleRemoveItem(item.id, item.itemType)}
                   />
                 </div>
