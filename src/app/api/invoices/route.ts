@@ -7,19 +7,46 @@ export async function GET() {
   try {
     const invoices = await db.invoice.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        customer: true,
-        staff: true,
+      select: {
+        id: true,
+        customerId: true,
+        staffId: true,
+        totalAmount: true,
+        discount: true,
+        finalAmount: true,
+        paymentType: true,
+        installmentType: true,
+        installmentMonths: true,
+        bankFee: true,
+        internalNotes: true,
+        createdAt: true,
+        customer: {
+          select: { id: true, fullName: true, phone: true, tier: true },
+        },
+        staff: {
+          select: { id: true, fullName: true },
+        },
         items: {
-          include: {
-            staff: {
-              select: {
-                fullName: true,
-              },
-            },
+          select: {
+            id: true,
+            itemType: true,
+            itemId: true,
+            price: true,
+            quantity: true,
+            discount: true,
+            staffId: true,
+            staff: { select: { fullName: true } },
           },
         },
-        schedules: true,
+        schedules: {
+          select: {
+            id: true,
+            dueDate: true,
+            amount: true,
+            status: true,
+            paidAt: true,
+          },
+        },
       },
     });
     return NextResponse.json(invoices);
@@ -74,19 +101,21 @@ export async function POST(request: Request) {
 
     // Execute in a transaction
     const invoiceResult = await db.$transaction(async (tx) => {
-      // 1. Check customer existence
-      const customer = await tx.customer.findUnique({
-        where: { id: customerId },
-      });
+      // 1. Validate customer + staff in PARALLEL
+      const [customer, staff] = await Promise.all([
+        tx.customer.findUnique({
+          where: { id: customerId },
+          select: { id: true, totalSpent: true },
+        }),
+        tx.staff.findUnique({
+          where: { id: staffId },
+          select: { id: true },
+        }),
+      ]);
       if (!customer) throw new Error("Khách hàng không tồn tại");
-
-      // 2. Check staff existence
-      const staff = await tx.staff.findUnique({
-        where: { id: staffId },
-      });
       if (!staff) throw new Error("Nhân viên thu ngân không tồn tại");
 
-      // 3. Create core Invoice record
+      // 2. Create core Invoice record
       const invoice = await tx.invoice.create({
         data: {
           customerId,
@@ -102,121 +131,126 @@ export async function POST(request: Request) {
         },
       });
 
-      // 4. Process invoice items and grant cards/treatments
+      // 3. Process invoice items — batch create items + grant cards/treatments in PARALLEL
+      const itemCreatePromises = [];
+      const grantPromises: Promise<any>[] = [];
+
       for (const item of items) {
         const itemPrice = Number(item.price);
         const itemQty = Number(item.quantity || 1);
         const itemDiscount = Number(item.discount || 0);
 
-        // Create InvoiceItem with details
-        await tx.invoiceItem.create({
-          data: {
-            invoiceId: invoice.id,
-            itemType: item.itemType, // 'service', 'product', or 'card'
-            itemId: item.itemId,
-            price: itemPrice,
-            quantity: itemQty,
-            discount: itemDiscount,
-            staffId: item.staffId || null,
-          },
-        });
+        // Create InvoiceItem
+        itemCreatePromises.push(
+          tx.invoiceItem.create({
+            data: {
+              invoiceId: invoice.id,
+              itemType: item.itemType,
+              itemId: item.itemId,
+              price: itemPrice,
+              quantity: itemQty,
+              discount: itemDiscount,
+              staffId: item.staffId || null,
+            },
+          })
+        );
 
         // Grant features depending on item type
         if (item.itemType === "card") {
-          // Fetch card template to get values
-          const template = await tx.cardTemplate.findUnique({
-            where: { id: item.itemId },
-          });
-          if (!template) throw new Error(`Không tìm thấy mẫu thẻ có ID ${item.itemId}`);
-
-          // Create CustomerCard
-          await tx.customerCard.create({
-            data: {
-              customerId,
-              templateId: item.itemId,
-              originalPrice: template.price,
-              originalValue: template.value,
-              currentBalance: template.value, // start with full promotional balance
-            },
-          });
+          grantPromises.push(
+            tx.cardTemplate.findUnique({
+              where: { id: item.itemId },
+              select: { price: true, value: true },
+            }).then((template) => {
+              if (!template) throw new Error(`Không tìm thấy mẫu thẻ có ID ${item.itemId}`);
+              return tx.customerCard.create({
+                data: {
+                  customerId,
+                  templateId: item.itemId,
+                  originalPrice: template.price,
+                  originalValue: template.value,
+                  currentBalance: template.value,
+                },
+              });
+            })
+          );
         } else if (item.itemType === "service" || item.itemType === "product") {
-          // Fetch service to confirm (both products and services are stored in Service table)
-          const service = await tx.service.findUnique({
-            where: { id: item.itemId },
-          });
-          if (!service) throw new Error(`Không tìm thấy dịch vụ/sản phẩm có ID ${item.itemId}`);
-
-          // For services, create treatments package. For products, they are retail only (no sessions to treat)
-          if (service.type === "service") {
-            const totalSessions = Number(item.totalSessions || itemQty || 1);
-            
-            // Create CustomerTreatment
-            await tx.customerTreatment.create({
-              data: {
-                customerId,
-                serviceId: item.itemId,
-                totalSessions,
-                usedSessions: 0,
-                pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
-              },
-            });
-          }
+          grantPromises.push(
+            tx.service.findUnique({
+              where: { id: item.itemId },
+              select: { id: true, type: true },
+            }).then((service) => {
+              if (!service) throw new Error(`Không tìm thấy dịch vụ/sản phẩm có ID ${item.itemId}`);
+              if (service.type === "service") {
+                const totalSessions = Number(item.totalSessions || itemQty || 1);
+                return tx.customerTreatment.create({
+                  data: {
+                    customerId,
+                    serviceId: item.itemId,
+                    totalSessions,
+                    usedSessions: 0,
+                    pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
+                  },
+                });
+              }
+            })
+          );
         }
       }
 
-      // 5. Generate Installment Schedule if installment
+      // Run all item creates + grants in PARALLEL
+      await Promise.all([...itemCreatePromises, ...grantPromises]);
+
+      // 4. Generate installment schedules with createMany (1 query) + update customer + appointment — ALL PARALLEL
+      const finalPromises: Promise<any>[] = [];
+
       if (paymentType === "installment") {
         const months = Number(installmentMonths);
         const debtAmount = finalAmountNum - downPaymentNum;
-        
-        // Calculate monthly split (handling roundings for the last month)
         const baseMonthlyAmount = Math.floor(debtAmount / months);
         let sumCreated = 0;
 
+        const scheduleData = [];
         for (let i = 1; i <= months; i++) {
           let monthlyAmount = baseMonthlyAmount;
-          
-          // Last month takes the remainder to make it match perfectly without fractions
           if (i === months) {
             monthlyAmount = debtAmount - sumCreated;
           } else {
             sumCreated += baseMonthlyAmount;
           }
-
-          // Due date is every 30 days from now
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + (30 * i));
-
-          await tx.installmentSchedule.create({
-            data: {
-              invoiceId: invoice.id,
-              dueDate,
-              amount: monthlyAmount,
-              status: "pending",
-            },
+          scheduleData.push({
+            invoiceId: invoice.id,
+            dueDate,
+            amount: monthlyAmount,
+            status: "pending",
           });
         }
+        finalPromises.push(tx.installmentSchedule.createMany({ data: scheduleData }));
       }
 
-      // 6. Complete appointment if linked
+      // Complete appointment if linked
       if (appointmentId) {
-        await tx.appointment.update({
-          where: { id: appointmentId },
-          data: { status: "completed" },
-        });
+        finalPromises.push(
+          tx.appointment.update({
+            where: { id: appointmentId },
+            data: { status: "completed" },
+          })
+        );
       }
 
-      // 7. Update customer total spend and tier
+      // Update customer total spend and tier
       const updatedTotalSpent = Number(customer.totalSpent) + finalAmountNum;
       const newTier = calculateTier(updatedTotalSpent);
+      finalPromises.push(
+        tx.customer.update({
+          where: { id: customerId },
+          data: { totalSpent: updatedTotalSpent, tier: newTier },
+        })
+      );
 
-      await tx.customer.update({
-        where: { id: customerId },
-        data: {
-          totalSpent: updatedTotalSpent,
-          tier: newTier,
-        },
-      });
+      await Promise.all(finalPromises);
 
       return invoice;
     });

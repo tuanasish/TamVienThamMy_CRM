@@ -11,30 +11,54 @@ export default async function StaffDashboard() {
   // 1. Get today's start and end timestamps
   const { start: todayStart, end: todayEnd } = getVietnamToday();
 
-  // 2. Fetch total customer count
-  const customerCount = await db.customer.count();
+  // 2. Run ALL queries in parallel
+  const [
+    customerCount,
+    todayInvoices,
+    unpaidSchedules,
+    allStaff,
+  ] = await Promise.all([
+    // Customer count (lightweight)
+    db.customer.count(),
 
-  // 3. Fetch today's invoices
-  const todayInvoices = await db.invoice.findMany({
-    where: {
-      createdAt: {
-        gte: todayStart,
-        lte: todayEnd,
+    // Today's invoices — only need finalAmount for sum
+    db.invoice.findMany({
+      where: {
+        createdAt: { gte: todayStart, lte: todayEnd },
       },
-    },
-  });
+      select: { finalAmount: true },
+    }),
+
+    // Unpaid installments — only need amount + customer name/phone
+    db.installmentSchedule.findMany({
+      where: { status: "pending" },
+      select: {
+        amount: true,
+        invoice: {
+          select: {
+            customerId: true,
+            customer: {
+              select: { fullName: true, phone: true },
+            },
+          },
+        },
+      },
+    }),
+
+    // Staff with invoice totals — only need fullName + finalAmount
+    db.staff.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        username: true,
+        invoices: {
+          select: { finalAmount: true },
+        },
+      },
+    }),
+  ]);
 
   const todayRevenue = todayInvoices.reduce((sum, inv) => sum + Number(inv.finalAmount), 0);
-
-  // 4. Fetch total unpaid installments (Debts)
-  const unpaidSchedules = await db.installmentSchedule.findMany({
-    where: { status: "pending" },
-    include: {
-      invoice: {
-        include: { customer: true },
-      },
-    },
-  });
 
   const totalDebt = unpaidSchedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
 
@@ -54,13 +78,7 @@ export default async function StaffDashboard() {
   });
   const debtsList = Object.values(customerDebts).sort((a, b) => b.amount - a.amount).slice(0, 5);
 
-  // 5. Fetch all sales by staff for leaderboard
-  const allStaff = await db.staff.findMany({
-    include: {
-      invoices: true,
-    },
-  });
-
+  // 3. Sales leaderboard
   const saleTarget = 30000000; // 30M default target
   const saleLeaderboard = allStaff.map((st) => {
     const totalSales = st.invoices.reduce((sum, inv) => sum + Number(inv.finalAmount), 0);

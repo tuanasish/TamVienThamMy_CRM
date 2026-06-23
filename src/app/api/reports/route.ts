@@ -4,14 +4,42 @@ import { db } from "@/lib/db";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const filter = searchParams.get("filter") || "month"; // 'day', 'week', 'month', 'year'
+    const filter = searchParams.get("filter") || "month";
 
-    // 1. Fetch Invoices and group by date
-    const invoices = await db.invoice.findMany({
-      include: { staff: true },
-    });
+    // Run all 3 queries in parallel
+    const [invoices, unpaidSchedules, usageLogs] = await Promise.all([
+      // 1. Invoices — only need finalAmount, bankFee, staffId + staff name
+      db.invoice.findMany({
+        select: {
+          finalAmount: true,
+          bankFee: true,
+          staffId: true,
+          staff: { select: { fullName: true } },
+        },
+      }),
 
-    const now = new Date();
+      // 2. Unpaid installments — only need amount + customer info
+      db.installmentSchedule.findMany({
+        where: { status: "pending" },
+        select: {
+          amount: true,
+          invoice: {
+            select: {
+              customerId: true,
+              customer: { select: { fullName: true, phone: true } },
+            },
+          },
+        },
+      }),
+
+      // 3. Usage logs — only need service price
+      db.usageLog.findMany({
+        select: {
+          service: { select: { price: true } },
+        },
+      }),
+    ]);
+
     let totalRevenue = 0;
     let totalBankFee = 0;
     const saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }> = {};
@@ -27,21 +55,11 @@ export async function GET(request: Request) {
           saleDoanhSo[inv.staffId] = {
             staffName: inv.staff.fullName,
             totalSales: 0,
-            target: 30000000, // Default target 30M
+            target: 30000000,
           };
         }
         saleDoanhSo[inv.staffId].totalSales += finalAmt;
       }
-    });
-
-    // 2. Calculate Unpaid Installments (Tiền nợ)
-    const unpaidSchedules = await db.installmentSchedule.findMany({
-      where: { status: "pending" },
-      include: {
-        invoice: {
-          include: { customer: true },
-        },
-      },
     });
 
     let totalDebt = 0;
@@ -62,27 +80,19 @@ export async function GET(request: Request) {
       customerDebts[customerId].debtAmount += amt;
     });
 
-    // 3. Calculate Service Cost (Chi phí cost - let's assume 30% of service prices as material/cost of service)
-    const usageLogs = await db.usageLog.findMany({
-      include: { service: true },
-    });
-    
     let totalServiceCost = 0;
     usageLogs.forEach((log) => {
-      const price = Number(log.service.price);
-      // Simulate cost of cosmetics/operation as 30% of service price
-      totalServiceCost += price * 0.3;
+      totalServiceCost += Number(log.service.price) * 0.3;
     });
 
-    // Group sales leaderboard
     const salesLeaderboard = Object.values(saleDoanhSo).sort((a, b) => b.totalSales - a.totalSales);
     const debtsList = Object.values(customerDebts).sort((a, b) => b.debtAmount - a.debtAmount);
 
     return NextResponse.json({
       revenueSummary: {
         totalRevenue,
-        totalBankFee, // Chi phí trả góp
-        totalServiceCost, // Chi phí cost dịch vụ
+        totalBankFee,
+        totalServiceCost,
         netProfit: totalRevenue - totalBankFee - totalServiceCost,
       },
       salesLeaderboard,

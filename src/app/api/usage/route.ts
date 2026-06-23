@@ -10,12 +10,37 @@ export async function GET(request: Request) {
     const logs = await db.usageLog.findMany({
       where: customerId ? { customerId } : {},
       orderBy: { usedAt: "desc" },
-      include: {
-        customer: true,
-        service: true,
-        staff: true,
-        customerCard: { include: { template: true } },
-        customerTreatment: { include: { service: true } },
+      select: {
+        id: true,
+        customerId: true,
+        serviceId: true,
+        sourceType: true,
+        cardId: true,
+        treatmentId: true,
+        amountDeducted: true,
+        sessionsDeducted: true,
+        performedBy: true,
+        usedAt: true,
+        notes: true,
+        staffId: true,
+        customer: { select: { id: true, fullName: true, phone: true } },
+        service: { select: { id: true, name: true, price: true } },
+        staff: { select: { id: true, fullName: true } },
+        customerCard: {
+          select: {
+            id: true,
+            currentBalance: true,
+            template: { select: { name: true, value: true } },
+          },
+        },
+        customerTreatment: {
+          select: {
+            id: true,
+            totalSessions: true,
+            usedSessions: true,
+            service: { select: { name: true } },
+          },
+        },
       },
     });
 

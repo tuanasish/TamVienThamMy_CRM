@@ -45,23 +45,35 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     } = body;
     
     const updatedInvoice = await db.$transaction(async (tx) => {
-      // 1. Fetch current invoice
-      const invoice = await tx.invoice.findUnique({
-        where: { id },
-        include: { items: true },
-      });
+      // 1. Fetch invoice + customer in parallel (both needed for calculations)
+      const [invoice, customer] = await Promise.all([
+        tx.invoice.findUnique({
+          where: { id },
+          include: { items: true },
+        }),
+        // We'll get the customer after we have the invoice, but we can start early
+        // Actually we need invoice.customerId first, so fetch invoice first
+        null,
+      ]);
       
       if (!invoice) throw new Error("Hóa đơn không tồn tại");
       
-      // 2. Update InvoiceItems (discount, staffId)
+      // Now fetch customer
+      const cust = await tx.customer.findUnique({
+        where: { id: invoice.customerId },
+        select: { id: true, totalSpent: true },
+      });
+      if (!cust) throw new Error("Khách hàng không tồn tại");
+      
+      // 2. Update InvoiceItems in PARALLEL (not sequential)
       let itemsTotalDiscount = 0;
       if (items && Array.isArray(items)) {
-        for (const itm of items) {
+        const updatePromises = items.map((itm: any) => {
           const matchedItem = invoice.items.find((i) => i.id === itm.id);
           if (matchedItem) {
             const itemDisc = Number(itm.discount || 0);
             itemsTotalDiscount += itemDisc;
-            await tx.invoiceItem.update({
+            return tx.invoiceItem.update({
               where: { id: itm.id },
               data: {
                 discount: itemDisc,
@@ -69,7 +81,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               },
             });
           }
-        }
+          return null;
+        }).filter(Boolean);
+        
+        await Promise.all(updatePromises);
       } else {
         itemsTotalDiscount = invoice.items.reduce((sum, i) => sum + Number(i.discount), 0);
       }
@@ -79,49 +94,41 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const invoiceDisc = Number(discount);
       const newFinalAmount = Math.max(rawTotal - itemsTotalDiscount - invoiceDisc, 0);
       
-      // 3. Update customer total spent
-      const customer = await tx.customer.findUnique({
-        where: { id: invoice.customerId },
-      });
-      if (!customer) throw new Error("Khách hàng không tồn tại");
-      
-      const newTotalSpent = Math.max(0, Number(customer.totalSpent) - Number(invoice.finalAmount) + newFinalAmount);
+      // 3. Update invoice + customer + delete old schedules — ALL IN PARALLEL
+      const newTotalSpent = Math.max(0, Number(cust.totalSpent) - Number(invoice.finalAmount) + newFinalAmount);
       const newTier = calculateTier(newTotalSpent);
       
-      await tx.customer.update({
-        where: { id: customer.id },
-        data: {
-          totalSpent: newTotalSpent,
-          tier: newTier,
-        },
-      });
+      const [updated] = await Promise.all([
+        tx.invoice.update({
+          where: { id },
+          data: {
+            staff: { connect: { id: staffId } },
+            discount: invoiceDisc,
+            finalAmount: newFinalAmount,
+            paymentType,
+            installmentType: paymentType === "installment" ? (installmentType || "counter") : null,
+            installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
+            bankFee: paymentType === "installment" ? Number(bankFee) : 0,
+            internalNotes: internalNotes || null,
+          },
+        }),
+        tx.customer.update({
+          where: { id: cust.id },
+          data: { totalSpent: newTotalSpent, tier: newTier },
+        }),
+        tx.installmentSchedule.deleteMany({
+          where: { invoiceId: id },
+        }),
+      ]);
       
-      // 4. Update the Invoice record
-      const updated = await tx.invoice.update({
-        where: { id },
-        data: {
-          staff: { connect: { id: staffId } },
-          discount: invoiceDisc,
-          finalAmount: newFinalAmount,
-          paymentType,
-          installmentType: paymentType === "installment" ? (installmentType || "counter") : null,
-          installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
-          bankFee: paymentType === "installment" ? Number(bankFee) : 0,
-          internalNotes: internalNotes || null,
-        },
-      });
-      
-      // 5. Delete old installment schedules and recreate if applicable
-      await tx.installmentSchedule.deleteMany({
-        where: { invoiceId: id },
-      });
-      
+      // 4. Recreate installment schedules with createMany (1 query instead of N)
       if (paymentType === "installment") {
         const months = Number(installmentMonths || 6);
         const debtAmount = newFinalAmount - Number(downPayment);
         const baseMonthlyAmount = Math.floor(debtAmount / months);
         let sumCreated = 0;
         
+        const scheduleData = [];
         for (let i = 1; i <= months; i++) {
           let monthlyAmount = baseMonthlyAmount;
           if (i === months) {
@@ -133,15 +140,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + (30 * i));
           
-          await tx.installmentSchedule.create({
-            data: {
-              invoiceId: id,
-              dueDate,
-              amount: monthlyAmount,
-              status: "pending",
-            },
+          scheduleData.push({
+            invoiceId: id,
+            dueDate,
+            amount: monthlyAmount,
+            status: "pending",
           });
         }
+        
+        await tx.installmentSchedule.createMany({ data: scheduleData });
       }
       
       return updated;
