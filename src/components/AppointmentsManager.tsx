@@ -59,9 +59,18 @@ export default function AppointmentsManager({
   const [successMsg, setSuccessMsg] = useState("");
 
   // Filters State
-  const [filterDate, setFilterDate] = useState("");
+  const [filterDate, setFilterDate] = useState(() => {
+    const today = new Date();
+    return today.toLocaleDateString("sv-SE"); // YYYY-MM-DD in local time
+  });
   const [filterStatus, setFilterStatus] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const adjustDate = (days: number) => {
+    const baseDate = filterDate ? new Date(filterDate) : new Date();
+    baseDate.setDate(baseDate.getDate() + days);
+    setFilterDate(baseDate.toLocaleDateString("sv-SE"));
+  };
 
   // Booking Modal State
   const [showBookModal, setShowBookModal] = useState(false);
@@ -77,8 +86,13 @@ export default function AppointmentsManager({
   const [editNotes, setEditNotes] = useState("");
   const [editStatus, setEditStatus] = useState("");
 
+  // Filter active appointments only (pending and checked_in)
+  const activeAppointments = appointments.filter(
+    (appt) => appt.status === "pending" || appt.status === "checked_in"
+  );
+
   // Search/Filter matching
-  const filteredAppointments = appointments.filter((appt) => {
+  const filteredAppointments = activeAppointments.filter((appt) => {
     // 1. Date match (dateTime is ISO string, we compare date part YYYY-MM-DD)
     if (filterDate) {
       const apptDateStr = appt.dateTime.split("T")[0];
@@ -315,14 +329,64 @@ export default function AppointmentsManager({
       {/* Control Bar (Filters and actions) */}
       <section className={styles.controlBar}>
         <div className={styles.filterRow}>
-          <div className={styles.filterGroup}>
+          <div className={styles.filterGroup} style={{ minWidth: "320px" }}>
             <label className={styles.label}>Lọc theo ngày</label>
-            <input
-              type="date"
-              className={styles.input}
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-            />
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={() => adjustDate(-1)}
+                className={styles.dateNavBtn}
+                title="Ngày trước"
+              >
+                &larr;
+              </button>
+              <input
+                type="date"
+                className={styles.input}
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={() => adjustDate(1)}
+                className={styles.dateNavBtn}
+                title="Ngày sau"
+              >
+                &rarr;
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={() => setFilterDate(new Date().toLocaleDateString("sv-SE"))}
+                className={`${styles.dateQuickBtn} ${filterDate === new Date().toLocaleDateString("sv-SE") ? styles.activeDateQuickBtn : ""}`}
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  setFilterDate(tomorrow.toLocaleDateString("sv-SE"));
+                }}
+                className={`${styles.dateQuickBtn} ${
+                  filterDate === new Date(Date.now() + 86400000).toLocaleDateString("sv-SE")
+                    ? styles.activeDateQuickBtn
+                    : ""
+                }`}
+              >
+                Ngày mai
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterDate("")}
+                className={`${styles.dateQuickBtn} ${filterDate === "" ? styles.activeDateQuickBtn : ""}`}
+              >
+                Tất cả
+              </button>
+            </div>
           </div>
 
           <div className={styles.filterGroup}>
@@ -332,11 +396,9 @@ export default function AppointmentsManager({
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="">-- Tất cả trạng thái --</option>
-              <option value="pending">Chờ khách đến</option>
+              <option value="">-- Tất cả hoạt động --</option>
+              <option value="pending">Chờ khách đến (Đã hẹn)</option>
               <option value="checked_in">Đã check-in</option>
-              <option value="completed">Đã hoàn thành</option>
-              <option value="cancelled">Đã hủy</option>
             </select>
           </div>
 
@@ -606,10 +668,8 @@ export default function AppointmentsManager({
                   onChange={(e) => setEditStatus(e.target.value)}
                   required
                 >
-                  <option value="pending">Chờ khách đến</option>
+                  <option value="pending">Chờ khách đến (Đã hẹn)</option>
                   <option value="checked_in">Đã check-in</option>
-                  <option value="completed">Đã hoàn thành</option>
-                  <option value="cancelled">Đã hủy</option>
                 </select>
               </div>
 
