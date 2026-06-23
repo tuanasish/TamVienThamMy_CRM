@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/staff/customers/page.module.css";
 import { Activity, X } from "lucide-react";
 
+const formatMoneyInput = (val: string) => {
+  const clean = val.replace(/\D/g, "");
+  if (!clean) return "";
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const parseMoneyInput = (val: string) => {
+  return val.replace(/\./g, "");
+};
+
 interface CustomerCardWithTemplate {
   id: string;
   currentBalance: any;
@@ -90,7 +100,7 @@ export default function RecordUsageModal({
           serviceId: finalServiceId,
           sourceType,
           sourceId,
-          amountDeducted: sourceType === "card" ? Number(amountDeducted) : 0,
+          amountDeducted: sourceType === "card" ? Number(parseMoneyInput(amountDeducted)) : 0,
           sessionsDeducted: sourceType === "treatment" ? Number(sessionsDeducted) : 0,
           performedBy,
           notes: notes || undefined,
@@ -249,11 +259,11 @@ export default function RecordUsageModal({
                   <div className={styles.formGroup}>
                     <label className={styles.label}>Số tiền trừ từ thẻ *</label>
                     <input
-                      type="number"
+                      type="text"
                       className={styles.searchInput}
-                      placeholder="Ví dụ: 1500000"
+                      placeholder="Ví dụ: 1.500.000"
                       value={amountDeducted}
-                      onChange={(e) => setAmountDeducted(e.target.value)}
+                      onChange={(e) => setAmountDeducted(formatMoneyInput(e.target.value))}
                       required
                       disabled={loading}
                     />

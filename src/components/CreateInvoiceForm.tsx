@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/staff/sales/page.module.css";
 import { Receipt, Plus, Trash2 } from "lucide-react";
 
+const formatMoneyInput = (val: string) => {
+  const clean = val.replace(/\D/g, "");
+  if (!clean) return "";
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const parseMoneyInput = (val: string) => {
+  return val.replace(/\./g, "");
+};
+
 interface CustomerProp {
   id: string;
   fullName: string;
@@ -78,7 +88,7 @@ export default function CreateInvoiceForm({
   // Update calculations when items, discount, or payment details change
   useEffect(() => {
     const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const disc = Number(discount) || 0;
+    const disc = Number(parseMoneyInput(discount)) || 0;
     const final = Math.max(total - disc, 0);
     setTotalAmount(total);
     setFinalAmount(final);
@@ -86,7 +96,7 @@ export default function CreateInvoiceForm({
     // Calculate installment preview
     if (paymentType === "installment") {
       const months = Number(installmentMonths);
-      const down = Number(downPayment) || 0;
+      const down = Number(parseMoneyInput(downPayment)) || 0;
       const debt = Math.max(final - down, 0);
       
       const baseAmt = Math.floor(debt / months);
@@ -201,12 +211,12 @@ export default function CreateInvoiceForm({
           customerId,
           staffId,
           totalAmount,
-          discount: Number(discount),
+          discount: Number(parseMoneyInput(discount)),
           finalAmount,
           paymentType,
           installmentMonths: paymentType === "installment" ? Number(installmentMonths) : undefined,
-          downPayment: paymentType === "installment" ? Number(downPayment) : 0,
-          bankFee: paymentType === "installment" ? Number(bankFee) : 0,
+          downPayment: paymentType === "installment" ? Number(parseMoneyInput(downPayment)) : 0,
+          bankFee: paymentType === "installment" ? Number(parseMoneyInput(bankFee)) : 0,
           internalNotes,
           items: selectedItems.map((itm) => ({
             itemType: itm.itemType,
@@ -403,11 +413,11 @@ export default function CreateInvoiceForm({
         <div className={styles.formGroup}>
           <label className={styles.label}>Chiết khấu / Giảm giá (đ)</label>
           <input
-            type="number"
+            type="text"
             className={styles.input}
             placeholder="0"
             value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
+            onChange={(e) => setDiscount(formatMoneyInput(e.target.value))}
             disabled={loading}
           />
         </div>
@@ -444,11 +454,11 @@ export default function CreateInvoiceForm({
             <div className={styles.formGroup}>
               <label className={styles.label}>Số tiền trả trước (đ)</label>
               <input
-                type="number"
+                type="text"
                 className={styles.input}
                 placeholder="0"
                 value={downPayment}
-                onChange={(e) => setDownPayment(e.target.value)}
+                onChange={(e) => setDownPayment(formatMoneyInput(e.target.value))}
                 disabled={loading}
               />
             </div>
@@ -456,11 +466,11 @@ export default function CreateInvoiceForm({
             <div className={styles.formGroup}>
               <label className={styles.label}>Phí trả góp ngân hàng (đ)</label>
               <input
-                type="number"
+                type="text"
                 className={styles.input}
                 placeholder="0"
                 value={bankFee}
-                onChange={(e) => setBankFee(e.target.value)}
+                onChange={(e) => setBankFee(formatMoneyInput(e.target.value))}
                 disabled={loading}
               />
             </div>

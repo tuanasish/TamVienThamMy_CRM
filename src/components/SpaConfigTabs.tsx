@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/staff/services/page.module.css";
 import { Plus, Edit2, Trash2, Check, X } from "lucide-react";
 
+const formatMoneyInput = (val: string) => {
+  const clean = val.replace(/\D/g, "");
+  if (!clean) return "";
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const parseMoneyInput = (val: string) => {
+  return val.replace(/\./g, "");
+};
+
 interface ServiceProp {
   id: string;
   name: string;
@@ -72,7 +82,7 @@ export default function SpaConfigTabs({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: serviceName,
-          price: Number(servicePrice),
+          price: Number(parseMoneyInput(servicePrice)),
           type: serviceType,
           notes: serviceNotes,
         }),
@@ -104,8 +114,8 @@ export default function SpaConfigTabs({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: cardName,
-          price: Number(cardPrice),
-          value: Number(cardValue),
+          price: Number(parseMoneyInput(cardPrice)),
+          value: Number(parseMoneyInput(cardValue)),
           services: cardServices,
         }),
       });
@@ -129,7 +139,7 @@ export default function SpaConfigTabs({
   const startEditService = (sv: ServiceProp) => {
     setEditingServiceId(sv.id);
     setEditServiceName(sv.name);
-    setEditServicePrice(sv.price.toString());
+    setEditServicePrice(formatMoneyInput(sv.price.toString()));
     setEditServiceType(sv.type || "service");
     setEditServiceNotes(sv.notes || "");
   };
@@ -143,7 +153,7 @@ export default function SpaConfigTabs({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editServiceName,
-          price: Number(editServicePrice),
+          price: Number(parseMoneyInput(editServicePrice)),
           type: editServiceType,
           notes: editServiceNotes,
         }),
@@ -186,8 +196,8 @@ export default function SpaConfigTabs({
   const startEditCard = (t: CardTemplateProp) => {
     setEditingCardId(t.id);
     setEditCardName(t.name);
-    setEditCardPrice(t.price.toString());
-    setEditCardValue(t.value.toString());
+    setEditCardPrice(formatMoneyInput(t.price.toString()));
+    setEditCardValue(formatMoneyInput(t.value.toString()));
     setEditCardServices(t.services || []);
   };
 
@@ -200,8 +210,8 @@ export default function SpaConfigTabs({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editCardName,
-          price: Number(editCardPrice),
-          value: Number(editCardValue),
+          price: Number(parseMoneyInput(editCardPrice)),
+          value: Number(parseMoneyInput(editCardValue)),
           services: editCardServices,
         }),
       });
@@ -301,11 +311,11 @@ export default function SpaConfigTabs({
               <div className={styles.formGroup}>
                 <label className={styles.label}>Giá bán lẻ (đ) *</label>
                 <input
-                  type="number"
+                  type="text"
                   className={styles.input}
-                  placeholder="Ví dụ: 1500000"
+                  placeholder="Ví dụ: 1.500.000"
                   value={servicePrice}
-                  onChange={(e) => setServicePrice(e.target.value)}
+                  onChange={(e) => setServicePrice(formatMoneyInput(e.target.value))}
                   required
                   disabled={loading}
                 />
@@ -360,10 +370,10 @@ export default function SpaConfigTabs({
                           required
                         />
                         <input
-                          type="number"
+                          type="text"
                           className={styles.input}
                           value={editServicePrice}
-                          onChange={(e) => setEditServicePrice(e.target.value)}
+                          onChange={(e) => setEditServicePrice(formatMoneyInput(e.target.value))}
                           placeholder="Giá bán lẻ (đ)"
                           required
                         />
@@ -470,11 +480,11 @@ export default function SpaConfigTabs({
               <div className={styles.formGroup}>
                 <label className={styles.label}>Giá bán thẻ (khách thực trả) (đ) *</label>
                 <input
-                  type="number"
+                  type="text"
                   className={styles.input}
-                  placeholder="Ví dụ: 10000000"
+                  placeholder="Ví dụ: 10.000.000"
                   value={cardPrice}
-                  onChange={(e) => setCardPrice(e.target.value)}
+                  onChange={(e) => setCardPrice(formatMoneyInput(e.target.value))}
                   required
                   disabled={loading}
                 />
@@ -483,11 +493,11 @@ export default function SpaConfigTabs({
               <div className={styles.formGroup}>
                 <label className={styles.label}>Mệnh giá nạp (giá trị thực nhận) (đ) *</label>
                 <input
-                  type="number"
+                  type="text"
                   className={styles.input}
-                  placeholder="Ví dụ: 15000000"
+                  placeholder="Ví dụ: 15.000.000"
                   value={cardValue}
-                  onChange={(e) => setCardValue(e.target.value)}
+                  onChange={(e) => setCardValue(formatMoneyInput(e.target.value))}
                   required
                   disabled={loading}
                 />
@@ -545,18 +555,18 @@ export default function SpaConfigTabs({
                           required
                         />
                         <input
-                          type="number"
+                          type="text"
                           className={styles.input}
                           value={editCardPrice}
-                          onChange={(e) => setEditCardPrice(e.target.value)}
+                          onChange={(e) => setEditCardPrice(formatMoneyInput(e.target.value))}
                           placeholder="Giá bán thực trả (đ)"
                           required
                         />
                         <input
-                          type="number"
+                          type="text"
                           className={styles.input}
                           value={editCardValue}
-                          onChange={(e) => setEditCardValue(e.target.value)}
+                          onChange={(e) => setEditCardValue(formatMoneyInput(e.target.value))}
                           placeholder="Mệnh giá thực nhận (đ)"
                           required
                         />
