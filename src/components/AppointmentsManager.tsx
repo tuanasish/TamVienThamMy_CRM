@@ -16,6 +16,13 @@ import {
   AlertCircle
 } from "lucide-react";
 
+const TIME_SLOTS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+  "20:00", "20:30"
+];
+
 interface CustomerProp {
   id: string;
   fullName: string;
@@ -76,7 +83,8 @@ export default function AppointmentsManager({
   const [bookCustomer, setBookCustomer] = useState("");
   const [bookCustomerSearch, setBookCustomerSearch] = useState("");
   const [showBookSuggestions, setShowBookSuggestions] = useState(false);
-  const [bookDateTime, setBookDateTime] = useState("");
+  const [bookDate, setBookDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
+  const [bookTime, setBookTime] = useState("09:00");
   const [bookServiceId, setBookServiceId] = useState("");
   const [bookNotes, setBookNotes] = useState("");
 
@@ -88,7 +96,8 @@ export default function AppointmentsManager({
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAppt, setEditingAppt] = useState<AppointmentProp | null>(null);
-  const [editDateTime, setEditDateTime] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   // Filter active appointments only (pending and checked_in)
@@ -194,8 +203,8 @@ export default function AppointmentsManager({
   // Action: Create Appointment
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookCustomer || !bookDateTime) {
-      setError("Vui lòng chọn khách hàng và thời gian hẹn");
+    if (!bookCustomer || !bookDate || !bookTime) {
+      setError("Vui lòng chọn khách hàng, ngày hẹn và giờ hẹn");
       return;
     }
 
@@ -203,6 +212,7 @@ export default function AppointmentsManager({
     setError("");
     setSuccessMsg("");
     try {
+      const dateTime = `${bookDate}T${bookTime}`;
       const selectedService = services.find((s) => s.id === bookServiceId);
       const apptNotes = bookServiceId
         ? (bookNotes ? `${selectedService?.name}. Ghi chú: ${bookNotes}` : `${selectedService?.name}`)
@@ -213,7 +223,7 @@ export default function AppointmentsManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: bookCustomer,
-          dateTime: bookDateTime,
+          dateTime,
           notes: apptNotes,
         }),
       });
@@ -236,7 +246,8 @@ export default function AppointmentsManager({
       // Reset form
       setBookCustomer("");
       setBookCustomerSearch("");
-      setBookDateTime("");
+      setBookDate(new Date().toLocaleDateString("sv-SE"));
+      setBookTime("09:00");
       setBookServiceId("");
       setBookNotes("");
       setShowBookModal(false);
@@ -251,17 +262,18 @@ export default function AppointmentsManager({
   // Action: Save Edited Appointment
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingAppt || !editDateTime) return;
+    if (!editingAppt || !editDate || !editTime) return;
 
     setLoading(true);
     setError("");
     setSuccessMsg("");
     try {
+      const dateTime = `${editDate}T${editTime}`;
       const response = await fetch(`/api/appointments/${editingAppt.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dateTime: editDateTime,
+          dateTime,
           notes: editNotes,
         }),
       });
@@ -294,12 +306,13 @@ export default function AppointmentsManager({
 
   const openEditModal = (appt: AppointmentProp) => {
     setEditingAppt(appt);
-    // Format dateTime back to YYYY-MM-DDTHH:MM for input datetime-local
+    // Split dateTime to Date and Time parts
     const date = new Date(appt.dateTime);
-    // Adjust timezone offset
     const tzOffset = date.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
-    setEditDateTime(localISOTime);
+    const localISO = new Date(date.getTime() - tzOffset).toISOString();
+    const [datePart, timePart] = localISO.split("T");
+    setEditDate(datePart);
+    setEditTime(timePart.slice(0, 5)); // HH:MM
     setEditNotes(appt.notes || "");
     setShowEditModal(true);
   };
@@ -413,6 +426,8 @@ export default function AppointmentsManager({
               setBookCustomer("");
               setBookCustomerSearch("");
               setShowBookSuggestions(false);
+              setBookDate(new Date().toLocaleDateString("sv-SE"));
+              setBookTime("09:00");
               setShowBookModal(true);
             }}
             className={styles.addBtn}
@@ -578,15 +593,32 @@ export default function AppointmentsManager({
                 <input type="hidden" value={bookCustomer} required name="customerId" />
               </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Thời gian hẹn *</label>
-                <input
-                  type="datetime-local"
-                  className={styles.input}
-                  value={bookDateTime}
-                  onChange={(e) => setBookDateTime(e.target.value)}
-                  required
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Ngày hẹn *</label>
+                  <input
+                    type="date"
+                    className={styles.input}
+                    value={bookDate}
+                    onChange={(e) => setBookDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Giờ hẹn *</label>
+                  <select
+                    className={styles.select}
+                    value={bookTime}
+                    onChange={(e) => setBookTime(e.target.value)}
+                    required
+                  >
+                    {TIME_SLOTS.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className={styles.formGroup}>
@@ -662,15 +694,32 @@ export default function AppointmentsManager({
                 />
               </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Thời gian hẹn *</label>
-                <input
-                  type="datetime-local"
-                  className={styles.input}
-                  value={editDateTime}
-                  onChange={(e) => setEditDateTime(e.target.value)}
-                  required
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Ngày hẹn *</label>
+                  <input
+                    type="date"
+                    className={styles.input}
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Giờ hẹn *</label>
+                  <select
+                    className={styles.select}
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    required
+                  >
+                    {TIME_SLOTS.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className={styles.formGroup}>

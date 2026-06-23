@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 import CreateInvoiceForm from "./CreateInvoiceForm";
 
+const TIME_SLOTS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+  "20:00", "20:30"
+];
+
 interface CustomerProp {
   id: string;
   fullName: string;
@@ -105,7 +112,8 @@ export default function SalesDashboard({
   
   // State for new appointment booking
   const [newApptCustomer, setNewApptCustomer] = useState("");
-  const [newApptTime, setNewApptTime] = useState("");
+  const [newApptDate, setNewApptDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
+  const [newApptTime, setNewApptTime] = useState("09:00");
   const [newApptNotes, setNewApptNotes] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -180,20 +188,21 @@ export default function SalesDashboard({
   // Quick book appointment handler
   const handleQuickBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newApptCustomer || !newApptTime) {
-      setError("Vui lòng chọn khách hàng và thời gian hẹn");
+    if (!newApptCustomer || !newApptDate || !newApptTime) {
+      setError("Vui lòng chọn khách hàng, ngày hẹn và giờ hẹn");
       return;
     }
 
     setLoading(true);
     setError("");
     try {
+      const dateTime = `${newApptDate}T${newApptTime}`;
       const response = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: newApptCustomer,
-          dateTime: newApptTime,
+          dateTime,
           notes: newApptNotes,
         }),
       });
@@ -208,7 +217,8 @@ export default function SalesDashboard({
       }
 
       setNewApptCustomer("");
-      setNewApptTime("");
+      setNewApptDate(new Date().toLocaleDateString("sv-SE"));
+      setNewApptTime("09:00");
       setNewApptNotes("");
       setShowAppointmentModal(false);
       router.refresh();
@@ -302,7 +312,12 @@ export default function SalesDashboard({
               Lịch hẹn hôm nay ({appointments.length})
             </h3>
             <button 
-              onClick={() => setShowAppointmentModal(true)} 
+              onClick={() => {
+                setNewApptCustomer("");
+                setNewApptDate(new Date().toLocaleDateString("sv-SE"));
+                setNewApptTime("09:00");
+                setShowAppointmentModal(true);
+              }} 
               className={styles.actionBtnSmall}
               style={{ background: "var(--grad-premium)", color: "white", padding: "0.4rem 0.8rem", borderRadius: "4px", fontWeight: "700" }}
             >
@@ -491,15 +506,32 @@ export default function SalesDashboard({
                 </select>
               </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Thời gian hẹn *</label>
-                <input
-                  type="datetime-local"
-                  className={styles.input}
-                  value={newApptTime}
-                  onChange={(e) => setNewApptTime(e.target.value)}
-                  required
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Ngày hẹn *</label>
+                  <input
+                    type="date"
+                    className={styles.input}
+                    value={newApptDate}
+                    onChange={(e) => setNewApptDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Giờ hẹn *</label>
+                  <select
+                    className={styles.select}
+                    value={newApptTime}
+                    onChange={(e) => setNewApptTime(e.target.value)}
+                    required
+                  >
+                    {TIME_SLOTS.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className={styles.formGroup}>

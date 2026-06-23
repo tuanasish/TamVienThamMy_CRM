@@ -6,6 +6,13 @@ import styles from "@/app/customer/booking/page.module.css";
 import { Calendar, Clock, Sparkles, Send, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 
+const TIME_SLOTS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+  "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+  "20:00", "20:30"
+];
+
 interface ServiceProp {
   id: string;
   name: string;
@@ -20,7 +27,8 @@ interface BookingFormProps {
 export default function BookingForm({ customerId, services }: BookingFormProps) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState("");
-  const [dateTime, setDateTime] = useState("");
+  const [bookDate, setBookDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
+  const [bookTime, setBookTime] = useState("09:00");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,11 +36,12 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId || !dateTime) {
+    if (!serviceId || !bookDate || !bookTime) {
       setError("Vui lòng chọn dịch vụ và thời gian hẹn");
       return;
     }
 
+    const dateTime = `${bookDate}T${bookTime}`;
     // Verify time is in the future
     const selectedDate = new Date(dateTime);
     if (selectedDate <= new Date()) {
@@ -113,16 +122,34 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
           </div>
 
           {/* Thời gian */}
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Ngày & Giờ hẹn *</label>
-            <input
-              type="datetime-local"
-              className={styles.input}
-              value={dateTime}
-              onChange={(e) => setDateTime(e.target.value)}
-              required
-              disabled={loading}
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Ngày hẹn *</label>
+              <input
+                type="date"
+                className={styles.input}
+                value={bookDate}
+                onChange={(e) => setBookDate(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Giờ hẹn *</label>
+              <select
+                className={styles.select}
+                value={bookTime}
+                onChange={(e) => setBookTime(e.target.value)}
+                required
+                disabled={loading}
+              >
+                {TIME_SLOTS.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Ghi chú */}
