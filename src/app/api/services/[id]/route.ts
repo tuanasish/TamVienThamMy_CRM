@@ -1,0 +1,72 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+// PUT edit service
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { name, price, tags } = body;
+
+    if (!name || price === undefined) {
+      return NextResponse.json({ error: "Tên dịch vụ và giá là bắt buộc" }, { status: 400 });
+    }
+
+    const priceNum = Number(price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      return NextResponse.json({ error: "Giá dịch vụ không hợp lệ" }, { status: 400 });
+    }
+
+    const updated = await db.service.update({
+      where: { id },
+      data: {
+        name,
+        price: priceNum,
+        tags: Array.isArray(tags) ? JSON.stringify(tags) : JSON.stringify([]),
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error("PUT Service Error:", error);
+    return NextResponse.json({ error: "Không thể cập nhật dịch vụ này" }, { status: 500 });
+  }
+}
+
+// DELETE service
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    // Check if service is linked to any active treatment package or usage log
+    const linkedTreatments = await db.customerTreatment.count({
+      where: { serviceId: id },
+    });
+
+    const linkedLogs = await db.usageLog.count({
+      where: { serviceId: id },
+    });
+
+    if (linkedTreatments > 0 || linkedLogs > 0) {
+      return NextResponse.json(
+        { error: "Không thể xóa dịch vụ này vì đã có lịch sử tiêu dùng hoặc khách hàng đang đăng ký liệu trình." },
+        { status: 400 }
+      );
+    }
+
+    await db.service.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("DELETE Service Error:", error);
+    return NextResponse.json({ error: "Không thể xóa dịch vụ này" }, { status: 500 });
+  }
+}

@@ -1,0 +1,145 @@
+// Prisma schema file for spa-crm project
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Staff {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  passwordHash String
+  fullName     String
+  role         String     @default("staff")
+  createdAt    DateTime   @default(now())
+  invoices     Invoice[]
+  usageLogs    UsageLog[]
+}
+
+model Customer {
+  id           String              @id @default(uuid())
+  phone        String              @unique
+  passwordHash String
+  fullName     String
+  dob          DateTime?
+  address      String?
+  gender       String?
+  cccd         String?             @unique
+  notes        String?
+  totalSpent   Decimal             @default(0) @db.Decimal(12, 2)
+  tier         String              @default("Member")
+  createdAt    DateTime            @default(now())
+  invoices     Invoice[]
+  cards        CustomerCard[]
+  treatments   CustomerTreatment[]
+  usageLogs    UsageLog[]
+}
+
+model Service {
+  id         String              @id @default(uuid())
+  name       String
+  price      Decimal             @db.Decimal(12, 2)
+  tags       Json                @default("[]")
+  createdAt  DateTime            @default(now())
+  treatments CustomerTreatment[]
+  usageLogs  UsageLog[]
+}
+
+model CardTemplate {
+  id        String         @id @default(uuid())
+  name      String
+  price     Decimal        @db.Decimal(12, 2)
+  value     Decimal        @db.Decimal(12, 2)
+  services  Json           @default("[]") // Array of service IDs allowed, empty means all
+  createdAt DateTime       @default(now())
+  cards     CustomerCard[]
+}
+
+model CustomerCard {
+  id            String       @id @default(uuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  templateId    String
+  template      CardTemplate @relation(fields: [templateId], references: [id])
+  originalPrice Decimal      @db.Decimal(12, 2)
+  originalValue Decimal      @db.Decimal(12, 2)
+  currentBalance Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime     @default(now())
+  usageLogs     UsageLog[]
+}
+
+model CustomerTreatment {
+  id            String     @id @default(uuid())
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service    @relation(fields: [serviceId], references: [id])
+  totalSessions Int
+  usedSessions  Int        @default(0)
+  pricePaid     Decimal    @db.Decimal(12, 2)
+  createdAt     DateTime   @default(now())
+  usageLogs     UsageLog[]
+}
+
+model Invoice {
+  id                String                @id @default(uuid())
+  customerId        String
+  customer          Customer              @relation(fields: [customerId], references: [id])
+  staffId           String
+  staff             Staff                 @relation(fields: [staffId], references: [id])
+  totalAmount       Decimal               @db.Decimal(12, 2)
+  discount          Decimal               @default(0) @db.Decimal(12, 2)
+  finalAmount       Decimal               @db.Decimal(12, 2)
+  paymentType       String                // 'cash' or 'installment'
+  installmentMonths Int?                  // 6, 9, 12
+  bankFee           Decimal               @default(0) @db.Decimal(12, 2)
+  internalNotes     String?
+  createdAt         DateTime              @default(now())
+  items             InvoiceItem[]
+  schedules         InstallmentSchedule[]
+}
+
+model InvoiceItem {
+  id        String   @id @default(uuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemType  String   // 'service' or 'card'
+  itemId    String   // ID of Service or CardTemplate
+  price     Decimal  @db.Decimal(12, 2)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+}
+
+model InstallmentSchedule {
+  id        String    @id @default(uuid())
+  invoiceId String
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  dueDate   DateTime
+  amount    Decimal   @db.Decimal(12, 2)
+  status    String    @default("pending") // 'pending', 'paid'
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model UsageLog {
+  id               String             @id @default(uuid())
+  customerId       String
+  customer         Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceId        String
+  service          Service            @relation(fields: [serviceId], references: [id])
+  sourceType       String             // 'card' or 'treatment'
+  cardId           String?
+  customerCard     CustomerCard?      @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  treatmentId      String?
+  customerTreatment CustomerTreatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  amountDeducted   Decimal            @default(0) @db.Decimal(12, 2)
+  sessionsDeducted Int                @default(1)
+  performedBy      String             // Name of technician
+  usedAt           DateTime           @default(now())
+  notes            String?
+  staffId          String?            // Staff who recorded the usage
+  staff            Staff?             @relation(fields: [staffId], references: [id])
+}

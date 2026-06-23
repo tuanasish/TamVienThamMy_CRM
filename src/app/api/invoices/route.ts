@@ -1,0 +1,203 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { calculateTier } from "../customers/route";
+import { Prisma } from "@prisma/client";
+
+// GET all invoices
+export async function GET() {
+  try {
+    const invoices = await db.invoice.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        customer: true,
+        staff: true,
+        items: true,
+        schedules: true,
+      },
+    });
+    return NextResponse.json(invoices);
+  } catch (error: any) {
+    console.error("GET Invoices Error:", error);
+    return NextResponse.json({ error: "Không thể lấy danh sách hóa đơn" }, { status: 500 });
+  }
+}
+
+// POST create invoice
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const {
+      customerId,
+      staffId,
+      totalAmount,
+      discount = 0,
+      finalAmount,
+      paymentType,
+      installmentMonths,
+      downPayment = 0,
+      bankFee = 0,
+      internalNotes,
+      items, // array of items
+    } = body;
+
+    // Validate inputs
+    if (!customerId || !staffId || !paymentType || !items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Vui lòng nhập đầy đủ các thông tin hóa đơn bắt buộc" }, { status: 400 });
+    }
+
+    if (finalAmount === undefined || finalAmount < 0) {
+      return NextResponse.json({ error: "Số tiền thanh toán cuối cùng không hợp lệ" }, { status: 400 });
+    }
+
+    const finalAmountNum = Number(finalAmount);
+    const downPaymentNum = Number(downPayment);
+    const bankFeeNum = Number(bankFee);
+
+    // Validate installment details
+    if (paymentType === "installment") {
+      if (!installmentMonths || ![6, 9, 12].includes(Number(installmentMonths))) {
+        return NextResponse.json({ error: "Kỳ hạn trả góp phải là 6, 9 hoặc 12 tháng" }, { status: 400 });
+      }
+      if (downPaymentNum >= finalAmountNum) {
+        return NextResponse.json({ error: "Số tiền trả trước phải nhỏ hơn tổng số tiền hóa đơn" }, { status: 400 });
+      }
+    }
+
+    // Execute in a transaction
+    const invoiceResult = await db.$transaction(async (tx) => {
+      // 1. Check customer existence
+      const customer = await tx.customer.findUnique({
+        where: { id: customerId },
+      });
+      if (!customer) throw new Error("Khách hàng không tồn tại");
+
+      // 2. Check staff existence
+      const staff = await tx.staff.findUnique({
+        where: { id: staffId },
+      });
+      if (!staff) throw new Error("Nhân viên không tồn tại");
+
+      // 3. Create core Invoice record
+      const invoice = await tx.invoice.create({
+        data: {
+          customerId,
+          staffId,
+          totalAmount: Number(totalAmount),
+          discount: Number(discount),
+          finalAmount: finalAmountNum,
+          paymentType,
+          installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
+          bankFee: bankFeeNum,
+          internalNotes: internalNotes || null,
+        },
+      });
+
+      // 4. Process invoice items and grant cards/treatments
+      for (const item of items) {
+        // Create InvoiceItem
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            itemType: item.itemType, // 'service' or 'card'
+            itemId: item.itemId,
+            price: Number(item.price),
+            quantity: Number(item.quantity || 1),
+          },
+        });
+
+        // Grant features depending on item type
+        if (item.itemType === "card") {
+          // Fetch card template to get values
+          const template = await tx.cardTemplate.findUnique({
+            where: { id: item.itemId },
+          });
+          if (!template) throw new Error(`Không tìm thấy mẫu thẻ có ID ${item.itemId}`);
+
+          // Create CustomerCard
+          await tx.customerCard.create({
+            data: {
+              customerId,
+              templateId: item.itemId,
+              originalPrice: template.price,
+              originalValue: template.value,
+              currentBalance: template.value, // start with full promotional balance
+            },
+          });
+        } else if (item.itemType === "service") {
+          // Fetch service to confirm
+          const service = await tx.service.findUnique({
+            where: { id: item.itemId },
+          });
+          if (!service) throw new Error(`Không tìm thấy dịch vụ có ID ${item.itemId}`);
+
+          // Determine sessions (default to 1, or custom package count, e.g. 5+1 = 6)
+          const totalSessions = Number(item.totalSessions || item.quantity || 1);
+
+          // Create CustomerTreatment
+          await tx.customerTreatment.create({
+            data: {
+              customerId,
+              serviceId: item.itemId,
+              totalSessions,
+              usedSessions: 0,
+              pricePaid: Number(item.price) * Number(item.quantity || 1),
+            },
+          });
+        }
+      }
+
+      // 5. Generate Installment Schedule if installment
+      if (paymentType === "installment") {
+        const months = Number(installmentMonths);
+        const debtAmount = finalAmountNum - downPaymentNum;
+        
+        // Calculate monthly split (handling roundings for the last month)
+        const baseMonthlyAmount = Math.floor(debtAmount / months);
+        let sumCreated = 0;
+
+        for (let i = 1; i <= months; i++) {
+          let monthlyAmount = baseMonthlyAmount;
+          
+          // Last month takes the remainder to make it match perfectly without fractions
+          if (i === months) {
+            monthlyAmount = debtAmount - sumCreated;
+          } else {
+            sumCreated += baseMonthlyAmount;
+          }
+
+          // Due date is every 30 days from now
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + (30 * i));
+
+          await tx.installmentSchedule.create({
+            data: {
+              invoiceId: invoice.id,
+              dueDate,
+              amount: monthlyAmount,
+              status: "pending",
+            },
+          });
+        }
+      }
+
+      // 6. Update customer total spend and tier
+      const updatedTotalSpent = Number(customer.totalSpent) + finalAmountNum;
+      const newTier = calculateTier(updatedTotalSpent);
+
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          totalSpent: updatedTotalSpent,
+          tier: newTier,
+        },
+      });
+
+      return invoice;
+    });
+
+    return NextResponse.json(invoiceResult, { status: 201 });
+  } catch (error: any) {
+    console.error("POST Invoice Error:", error);
+    return NextResponse.json({ error: error.message || "Lỗi hệ thống khi tạo hóa đơn" }, { status: 500 });
+  }
+}
