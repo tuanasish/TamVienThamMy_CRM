@@ -225,81 +225,88 @@ export default function EditInvoiceModal({
 
       {isOpen && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modalContent} style={{ maxWidth: "800px", padding: "1.5rem" }}>
+          <div className={styles.modalContent} style={{ maxWidth: "700px" }}>
             <div className={styles.modalHeader}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-primary)" }}>
-                Điều chỉnh hóa đơn của: {invoice.customer.fullName} ({invoice.customer.phone})
+              <h3 style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)" }}>
+                ✏️ Chỉnh sửa hóa đơn
               </h3>
               <button onClick={() => setIsOpen(false)} className={styles.closeBtn}>
                 <X size={20} />
               </button>
             </div>
 
+            {/* Customer info banner */}
+            <div style={{
+              background: "rgba(197,160,89,0.06)",
+              border: "1px solid rgba(197,160,89,0.15)",
+              borderRadius: "8px",
+              padding: "0.65rem 1rem",
+              marginTop: "0.75rem",
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+            }}>
+              Khách hàng: <strong style={{ color: "var(--text-primary)" }}>{invoice.customer.fullName}</strong> • {invoice.customer.phone}
+            </div>
+
             {error && (
-              <div style={{ color: "#dc3545", background: "rgba(220,53,69,0.1)", padding: "1rem", borderRadius: "4px", fontSize: "0.95rem", fontWeight: "600", marginTop: "1rem" }}>
+              <div style={{ color: "#dc3545", background: "rgba(220,53,69,0.08)", padding: "0.75rem 1rem", borderRadius: "8px", fontSize: "0.85rem", fontWeight: 600, marginTop: "0.75rem" }}>
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} style={{ marginTop: "1rem", maxHeight: "70vh", overflowY: "auto", paddingRight: "5px" }}>
-              <div className={styles.sectionTitle}>Thông tin chung</div>
+            <form onSubmit={handleSubmit} style={{ marginTop: "0.75rem", maxHeight: "65vh", overflowY: "auto", paddingRight: "4px" }}>
+              {/* Section 1: General */}
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>
+                Thông tin chung
+              </div>
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Thu ngân / Người lập hóa đơn *</label>
-                  <select
-                    className={styles.select}
-                    value={staffId}
-                    onChange={(e) => setStaffId(e.target.value)}
-                    required
-                    disabled={loading}
-                  >
-                    <option value="">-- Chọn nhân viên thu ngân --</option>
+                  <label className={styles.label}>Thu ngân *</label>
+                  <select className={styles.select} value={staffId} onChange={(e) => setStaffId(e.target.value)} required disabled={loading}>
+                    <option value="">-- Chọn --</option>
                     {staff.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.fullName}
-                      </option>
+                      <option key={s.id} value={s.id}>{s.fullName}</option>
                     ))}
                   </select>
                 </div>
-
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Chiết khấu hóa đơn chung (đ)</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    value={discount}
-                    onChange={(e) => setDiscount(formatMoneyInput(e.target.value))}
-                    disabled={loading}
-                  />
+                  <label className={styles.label}>Chiết khấu chung (đ)</label>
+                  <input type="text" className={styles.input} value={discount} onChange={(e) => setDiscount(formatMoneyInput(e.target.value))} disabled={loading} />
                 </div>
               </div>
 
-              {/* Items List inside invoice */}
-              <div className={styles.sectionTitle}>Mặt hàng trong hóa đơn</div>
-              <div className={styles.selectedItemsList} style={{ marginBottom: "1.5rem" }}>
+              {/* Section 2: Items */}
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>
+                Mặt hàng ({editItems.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
                 {editItems.map((item) => (
-                  <div key={item.id} className={styles.selectedItemRow}>
-                    <div className={styles.itemDetails}>
-                      <span className={styles.itemName}>{item.name}</span>
-                      <span className={styles.itemPrice}>
-                        Đơn giá: {item.price.toLocaleString("vi-VN")}đ | SL: <strong>{item.quantity}</strong>
+                  <div key={item.id} style={{
+                    background: "var(--bg-primary)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    padding: "0.65rem 0.85rem",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{item.name}</span>
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                        {item.price.toLocaleString("vi-VN")}đ × {item.quantity}
                       </span>
                     </div>
-
-                    <div className={styles.itemActions}>
-                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
-                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "0 0 auto" }}>
+                        <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600 }}>Giảm:</label>
                         <input
                           type="text"
                           className={`${styles.input} ${styles.actionInput}`}
+                          style={{ width: "100px" }}
                           value={item.discount}
                           onChange={(e) => handleItemDiscountChange(item.id, e.target.value)}
                           disabled={loading}
                         />
                       </div>
-
-                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
-                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "1 1 auto", minWidth: "120px" }}>
+                        <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>NV:</label>
                         <select
                           className={`${styles.select} ${styles.actionInput}`}
                           value={item.staffId}
@@ -309,9 +316,7 @@ export default function EditInvoiceModal({
                         >
                           <option value="">-- Chọn --</option>
                           {staff.map((st) => (
-                            <option key={st.id} value={st.id}>
-                              {st.fullName}
-                            </option>
+                            <option key={st.id} value={st.id}>{st.fullName}</option>
                           ))}
                         </select>
                       </div>
@@ -320,18 +325,15 @@ export default function EditInvoiceModal({
                 ))}
               </div>
 
-              {/* Payment Methods Options */}
-              <div className={styles.sectionTitle}>Hình thức thanh toán</div>
+              {/* Section 3: Payment */}
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>
+                Thanh toán
+              </div>
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Phương thức thanh toán</label>
-                  <select
-                    className={styles.select}
-                    value={paymentType}
-                    onChange={(e) => setPaymentType(e.target.value as any)}
-                    disabled={loading}
-                  >
-                    <option value="cash">Trả thẳng (Tiền mặt/Chuyển khoản)</option>
+                  <label className={styles.label}>Phương thức</label>
+                  <select className={styles.select} value={paymentType} onChange={(e) => setPaymentType(e.target.value as any)} disabled={loading}>
+                    <option value="cash">Trả thẳng</option>
                     <option value="installment">Trả góp</option>
                   </select>
                 </div>
@@ -339,78 +341,46 @@ export default function EditInvoiceModal({
                 {paymentType === "installment" && (
                   <>
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Loại trả góp (Đối tác / Hình thức)</label>
-                      <select
-                        className={styles.select}
-                        value={installmentType}
-                        onChange={(e) => setInstallmentType(e.target.value)}
-                        disabled={loading}
-                      >
+                      <label className={styles.label}>Đối tác</label>
+                      <select className={styles.select} value={installmentType} onChange={(e) => setInstallmentType(e.target.value)} disabled={loading}>
                         <option value="home_credit">Home Credit</option>
                         <option value="mirae_asset">Mirae Asset</option>
-                        <option value="counter">Trả góp tại quầy (Spa)</option>
+                        <option value="counter">Tại quầy</option>
                       </select>
                     </div>
-
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Kỳ hạn trả góp (tháng)</label>
-                      <select
-                        className={styles.select}
-                        value={installmentMonths}
-                        onChange={(e) => setInstallmentMonths(e.target.value)}
-                        disabled={loading}
-                      >
+                      <label className={styles.label}>Kỳ hạn</label>
+                      <select className={styles.select} value={installmentMonths} onChange={(e) => setInstallmentMonths(e.target.value)} disabled={loading}>
                         <option value="6">6 tháng</option>
                         <option value="9">9 tháng</option>
                         <option value="12">12 tháng</option>
                       </select>
                     </div>
-
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Số tiền trả trước (đ)</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        value={downPayment}
-                        onChange={(e) => setDownPayment(formatMoneyInput(e.target.value))}
-                        disabled={loading}
-                      />
+                      <label className={styles.label}>Trả trước (đ)</label>
+                      <input type="text" className={styles.input} value={downPayment} onChange={(e) => setDownPayment(formatMoneyInput(e.target.value))} disabled={loading} />
                     </div>
-
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Phí trả góp ngân hàng (đ)</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        value={bankFee}
-                        onChange={(e) => setBankFee(formatMoneyInput(e.target.value))}
-                        disabled={loading}
-                      />
+                      <label className={styles.label}>Phí ngân hàng (đ)</label>
+                      <input type="text" className={styles.input} value={bankFee} onChange={(e) => setBankFee(formatMoneyInput(e.target.value))} disabled={loading} />
                     </div>
                   </>
                 )}
 
                 <div className={`${styles.formGroup} ${styles.formFull}`}>
                   <label className={styles.label}>Ghi chú nội bộ</label>
-                  <textarea
-                    className={styles.textarea}
-                    placeholder="Ghi chú nội bộ..."
-                    value={internalNotes}
-                    onChange={(e) => setInternalNotes(e.target.value)}
-                    disabled={loading}
-                    style={{ minHeight: "60px" }}
-                  />
+                  <textarea className={styles.textarea} placeholder="Ghi chú..." value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} disabled={loading} style={{ minHeight: "50px" }} />
                 </div>
               </div>
 
-              {/* Financial summary preview */}
-              <div className={styles.summarySection}>
+              {/* Summary */}
+              <div className={styles.summarySection} style={{ padding: "1rem 1.25rem" }}>
                 <div className={styles.summaryRow}>
-                  <span>Cộng giá gốc:</span>
+                  <span>Giá gốc:</span>
                   <span>{totalAmount.toLocaleString("vi-VN")}đ</span>
                 </div>
                 <div className={styles.summaryRow}>
-                  <span>Giảm giá mặt hàng:</span>
+                  <span>Giảm mặt hàng:</span>
                   <span style={{ color: "#dc3545" }}>
                     -{editItems.reduce((sum, itm) => sum + (Number(parseMoneyInput(itm.discount)) || 0), 0).toLocaleString("vi-VN")}đ
                   </span>
@@ -426,7 +396,7 @@ export default function EditInvoiceModal({
 
                 {paymentType === "installment" && (
                   <div className={styles.previewSchedule}>
-                    <span className={styles.label}>Bảng xem trước lịch trả góp mới:</span>
+                    <span className={styles.label}>Lịch trả góp mới:</span>
                     <div className={styles.scheduleGrid}>
                       <div className={styles.scheduleCard}>
                         Trả trước:
@@ -434,7 +404,7 @@ export default function EditInvoiceModal({
                       </div>
                       {previewInstallments.map((inst) => (
                         <div key={inst.month} className={styles.scheduleCard}>
-                          Tháng {inst.month}:
+                          T{inst.month}:
                           <strong>{inst.amount.toLocaleString("vi-VN")}đ</strong>
                         </div>
                       ))}
@@ -443,18 +413,24 @@ export default function EditInvoiceModal({
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+              {/* Footer buttons */}
+              <div style={{ display: "flex", gap: "0.75rem" }}>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className={styles.submitBtn}
-                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-secondary)", boxShadow: "none" }}
+                  className={`${styles.actionBtnSmall} ${styles.btnGhost}`}
+                  style={{ padding: "0.6rem 1.5rem", fontSize: "0.9rem" }}
                   disabled={loading}
                 >
                   Hủy
                 </button>
-                <button type="submit" className={styles.submitBtn} disabled={loading} style={{ flex: 1 }}>
-                  <Receipt size={20} /> Lưu thay đổi
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  style={{ flex: 1 }}
+                  disabled={loading}
+                >
+                  <Receipt size={18} /> Lưu thay đổi
                 </button>
               </div>
             </form>
