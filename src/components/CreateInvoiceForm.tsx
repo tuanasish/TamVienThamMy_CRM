@@ -390,7 +390,8 @@ export default function CreateInvoiceForm({
                       <div
                         key={c.id}
                         className={styles.suggestionItem}
-                        onClick={() => {
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // prevent input blur before state change
                           setCustomerId(c.id);
                           setCustomerSearch(`${c.fullName} (${c.phone})`);
                           setShowCustomerSuggestions(false);

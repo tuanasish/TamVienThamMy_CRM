@@ -575,7 +575,8 @@ export default function AppointmentsManager({
                           <div
                             key={c.id}
                             className={styles.suggestionItem}
-                            onClick={() => {
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // prevent input blur before state change
                               setBookCustomer(c.id);
                               setBookCustomerSearch(`${c.fullName} (${c.phone})`);
                               setShowBookSuggestions(false);
