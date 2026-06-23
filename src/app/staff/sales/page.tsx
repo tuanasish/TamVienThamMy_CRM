@@ -131,6 +131,8 @@ export default async function SalesPage() {
     totalAmount: Number(inv.totalAmount),
     discount: Number(inv.discount),
     finalAmount: Number(inv.finalAmount),
+    paymentType: inv.paymentType,
+    installmentType: inv.installmentType,
     createdAt: inv.createdAt.toISOString(),
     items: inv.items.map((item) => ({
       id: item.id,

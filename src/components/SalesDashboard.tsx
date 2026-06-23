@@ -73,6 +73,8 @@ interface InvoiceProp {
   totalAmount: any;
   discount: any;
   finalAmount: any;
+  paymentType: string;
+  installmentType?: string | null;
   createdAt: string;
   items: {
     id: string;
@@ -466,8 +468,21 @@ export default function SalesDashboard({
                           ))}
                         </div>
                       </td>
-                      <td style={{ textAlign: "right", fontWeight: "700", color: "var(--accent-gold)" }}>
-                        {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: "700", color: "var(--accent-gold)" }}>
+                          {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                          {inv.paymentType === "installment"
+                            ? `Trả góp: ${
+                                inv.installmentType === "home_credit"
+                                  ? "Home Credit"
+                                  : inv.installmentType === "mirae_asset"
+                                  ? "Mirae Asset"
+                                  : "Tại quầy"
+                              }`
+                            : "Trả thẳng"}
+                        </div>
                       </td>
                     </tr>
                   ))}
