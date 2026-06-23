@@ -17,6 +17,7 @@ import {
   CreditCard
 } from "lucide-react";
 import CreateInvoiceForm from "./CreateInvoiceForm";
+import EditInvoiceModal from "./EditInvoiceModal";
 
 const TIME_SLOTS = [
   "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -271,6 +272,26 @@ export default function SalesDashboard({
     }
   };
 
+  // Delete invoice handler
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa/hủy hóa đơn này? Hành động này sẽ thu hồi các thẻ nạp/buổi liệu trình đã cấp và hoàn trả lại phân hạng khách hàng.")) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể xóa hóa đơn");
+      
+      // Refresh local states
+      handleInvoiceSuccess();
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.dashboardContainer}>
       {error && (
@@ -442,6 +463,7 @@ export default function SalesDashboard({
                     <th>Khách hàng</th>
                     <th>Mặt hàng mua</th>
                     <th style={{ textAlign: "right" }}>Thanh toán</th>
+                    <th style={{ textAlign: "right" }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -482,6 +504,26 @@ export default function SalesDashboard({
                                   : "Tại quầy"
                               }`
                             : "Trả thẳng"}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                          <EditInvoiceModal
+                            invoice={inv}
+                            services={services}
+                            cardTemplates={cardTemplates}
+                            staff={staff}
+                            onSuccess={handleInvoiceSuccess}
+                          />
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            disabled={loading}
+                            className={styles.actionBtnSmall}
+                            style={{ background: "transparent", border: "1px solid var(--border-color)", color: "var(--accent-rose)" }}
+                            title="Xóa hóa đơn"
+                          >
+                            <Trash2 size={14} /> Xóa
+                          </button>
                         </div>
                       </td>
                     </tr>
