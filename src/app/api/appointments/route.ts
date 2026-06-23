@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getVietnamToday, getVietnamDayRange, parseVietnamDateTime } from "@/lib/timezone";
 
 // GET appointments for a specific date or today
 export async function GET(request: Request) {
@@ -11,14 +12,15 @@ export async function GET(request: Request) {
     let end: Date;
     
     if (dateParam) {
-      start = new Date(`${dateParam}T00:00:00`);
-      end = new Date(`${dateParam}T23:59:59.999`);
+      // Parse date param as Vietnam day boundaries
+      const range = getVietnamDayRange(dateParam);
+      start = range.start;
+      end = range.end;
     } else {
-      // Default to today in system timezone
-      start = new Date();
-      start.setHours(0, 0, 0, 0);
-      end = new Date();
-      end.setHours(23, 59, 59, 999);
+      // Default to today in Vietnam timezone
+      const today = getVietnamToday();
+      start = today.start;
+      end = today.end;
     }
 
     const appointments = await db.appointment.findMany({
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
     const appointment = await db.appointment.create({
       data: {
         customerId,
-        dateTime: new Date(dateTime),
+        dateTime: parseVietnamDateTime(dateTime),
         notes,
         status: "pending",
       },

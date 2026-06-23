@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getVietnamToday, formatVietnamDate } from "@/lib/timezone";
 import styles from "./page.module.css";
 import { Users, DollarSign, Wallet, ShieldCheck } from "lucide-react";
 
@@ -8,10 +9,7 @@ const formatVND = (value: any) => {
 
 export default async function StaffDashboard() {
   // 1. Get today's start and end timestamps
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const { start: todayStart, end: todayEnd } = getVietnamToday();
 
   // 2. Fetch total customer count
   const customerCount = await db.customer.count();
@@ -76,12 +74,7 @@ export default async function StaffDashboard() {
     };
   }).sort((a, b) => b.totalSales - a.totalSales);
 
-  const formattedDate = new Date().toLocaleDateString("vi-VN", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = formatVietnamDate(new Date());
 
   return (
     <div className={styles.container}>

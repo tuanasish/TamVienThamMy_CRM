@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getVietnamToday } from "@/lib/timezone";
 import styles from "./page.module.css";
 import SalesDashboard from "@/components/SalesDashboard";
 
@@ -9,10 +10,7 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function SalesPage() {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const { start: todayStart, end: todayEnd } = getVietnamToday();
 
   // Parallel fetch database records
   const customersPromise = db.customer.findMany({

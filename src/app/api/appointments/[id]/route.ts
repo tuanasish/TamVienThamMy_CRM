@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseVietnamDateTime } from "@/lib/timezone";
 
 // PUT edit/update appointment status or details
 export async function PUT(
@@ -15,7 +16,7 @@ export async function PUT(
       where: { id },
       data: {
         status,
-        dateTime: dateTime ? new Date(dateTime) : undefined,
+        dateTime: dateTime ? parseVietnamDateTime(dateTime) : undefined,
         notes,
       },
       include: {
