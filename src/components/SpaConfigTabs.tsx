@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import styles from "@/app/staff/config/page.module.css";
+import styles from "@/app/staff/services/page.module.css";
 import { Plus, Edit2, Trash2, Check, X } from "lucide-react";
 
 interface ServiceProp {
@@ -10,7 +10,7 @@ interface ServiceProp {
   name: string;
   price: number;
   type: string; // 'service' or 'product'
-  tags: string[];
+  notes: string;
 }
 
 interface CardTemplateProp {
@@ -37,7 +37,7 @@ export default function SpaConfigTabs({
   const [serviceName, setServiceName] = useState("");
   const [servicePrice, setServicePrice] = useState("");
   const [serviceType, setServiceType] = useState("service"); // 'service' or 'product'
-  const [serviceTags, setServiceTags] = useState("");
+  const [serviceNotes, setServiceNotes] = useState("");
   
   // Card form states
   const [cardName, setCardName] = useState("");
@@ -50,7 +50,7 @@ export default function SpaConfigTabs({
   const [editServiceName, setEditServiceName] = useState("");
   const [editServicePrice, setEditServicePrice] = useState("");
   const [editServiceType, setEditServiceType] = useState("service");
-  const [editServiceTags, setEditServiceTags] = useState("");
+  const [editServiceNotes, setEditServiceNotes] = useState("");
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editCardName, setEditCardName] = useState("");
@@ -67,10 +67,6 @@ export default function SpaConfigTabs({
     setLoading(true);
 
     try {
-      const tagsArray = serviceTags
-        ? serviceTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
-        : [];
-
       const response = await fetch("/api/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,7 +74,7 @@ export default function SpaConfigTabs({
           name: serviceName,
           price: Number(servicePrice),
           type: serviceType,
-          tags: tagsArray,
+          notes: serviceNotes,
         }),
       });
 
@@ -88,7 +84,7 @@ export default function SpaConfigTabs({
       setServiceName("");
       setServicePrice("");
       setServiceType("service");
-      setServiceTags("");
+      setServiceNotes("");
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -135,17 +131,13 @@ export default function SpaConfigTabs({
     setEditServiceName(sv.name);
     setEditServicePrice(sv.price.toString());
     setEditServiceType(sv.type || "service");
-    setEditServiceTags(sv.tags.join(", "));
+    setEditServiceNotes(sv.notes || "");
   };
 
   const saveEditService = async (id: string) => {
     setError("");
     setLoading(true);
     try {
-      const tagsArray = editServiceTags
-        ? editServiceTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
-        : [];
-
       const response = await fetch(`/api/services/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -153,7 +145,7 @@ export default function SpaConfigTabs({
           name: editServiceName,
           price: Number(editServicePrice),
           type: editServiceType,
-          tags: tagsArray,
+          notes: editServiceNotes,
         }),
       });
 
@@ -320,13 +312,13 @@ export default function SpaConfigTabs({
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Thẻ nhãn tags (cách nhau bằng dấu phẩy)</label>
+                <label className={styles.label}>Ghi chú / Ưu đãi</label>
                 <input
                   type="text"
                   className={styles.input}
-                  placeholder="skincare, facial, massage"
-                  value={serviceTags}
-                  onChange={(e) => setServiceTags(e.target.value)}
+                  placeholder="Ví dụ: Đang có ưu đãi giảm 10%"
+                  value={serviceNotes}
+                  onChange={(e) => setServiceNotes(e.target.value)}
                   disabled={loading}
                 />
               </div>
@@ -378,9 +370,9 @@ export default function SpaConfigTabs({
                         <input
                           type="text"
                           className={styles.input}
-                          value={editServiceTags}
-                          onChange={(e) => setEditServiceTags(e.target.value)}
-                          placeholder="Tags (cách nhau bằng dấu phẩy)"
+                          value={editServiceNotes}
+                          onChange={(e) => setEditServiceNotes(e.target.value)}
+                          placeholder="Ghi chú / Ưu đãi (ví dụ: Đang ưu đãi 10%)"
                         />
                         <div style={{ display: "flex", gap: "0.5rem" }}>
                           <button
@@ -422,13 +414,11 @@ export default function SpaConfigTabs({
                               {sv.type === "product" ? "Sản phẩm" : "Dịch vụ"}
                             </span>
                           </div>
-                          <div className={styles.tagsList}>
-                            {sv.tags.map((tag) => (
-                              <span key={tag} className={styles.tag}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
+                          {sv.notes && (
+                            <div style={{ fontSize: "0.8rem", color: "var(--accent-gold)", fontStyle: "italic", marginTop: "0.25rem" }}>
+                              Ghi chú: {sv.notes}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                           <span className={styles.itemPrice} style={{ fontWeight: 700 }}>

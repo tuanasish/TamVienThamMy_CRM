@@ -43,7 +43,7 @@ model Service {
   name       String
   price      Decimal             @db.Decimal(12, 2)
   type       String              @default("service")
-  tags       Json                @default("[]")
+  notes      String?
   createdAt  DateTime            @default(now())
   treatments CustomerTreatment[]
   usageLogs  UsageLog[]

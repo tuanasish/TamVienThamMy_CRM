@@ -8,19 +8,7 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
     
-    // Parse tags JSON string if necessary
-    const parsedServices = services.map(s => {
-      try {
-        return {
-          ...s,
-          tags: typeof s.tags === "string" ? JSON.parse(s.tags) : s.tags
-        };
-      } catch {
-        return s;
-      }
-    });
-    
-    return NextResponse.json(parsedServices);
+    return NextResponse.json(services);
   } catch (error: any) {
     console.error("GET Services Error:", error);
     return NextResponse.json({ error: "Không thể lấy danh sách dịch vụ" }, { status: 500 });
@@ -31,7 +19,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, price, type, tags } = body;
+    const { name, price, type, notes } = body;
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: "Tên mặt hàng và giá là bắt buộc" }, { status: 400 });
@@ -49,7 +37,7 @@ export async function POST(request: Request) {
         name,
         price: priceNum,
         type: serviceType,
-        tags: Array.isArray(tags) ? JSON.stringify(tags) : JSON.stringify([]),
+        notes: notes || "",
       },
     });
 

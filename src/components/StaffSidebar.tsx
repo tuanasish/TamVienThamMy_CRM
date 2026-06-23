@@ -30,7 +30,6 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
     { name: "Dịch vụ", path: "/staff/services", icon: <Sparkles size={20} /> },
     { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} /> },
     { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} /> },
-    { name: "Cấu hình", path: "/staff/config", icon: <Settings size={20} /> },
   ];
 
   const handleLogout = async () => {

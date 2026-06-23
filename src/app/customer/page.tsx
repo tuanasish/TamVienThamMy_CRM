@@ -61,7 +61,7 @@ export default async function CustomerDashboard() {
     id: s.id,
     name: s.name,
     price: Number(s.price),
-    tags: Array.isArray(s.tags) ? (s.tags as string[]) : JSON.parse((s.tags as string) || "[]"),
+    notes: s.notes || "",
   }));
 
   const welcomeName = customer.fullName;
@@ -188,13 +188,11 @@ export default async function CustomerDashboard() {
               <div key={sv.id} className={styles.serviceCard}>
                 <div className={styles.serviceInfo}>
                   <span className={styles.serviceName}>{sv.name}</span>
-                  <div className={styles.serviceTags}>
-                    {sv.tags.map((tag: string) => (
-                      <span key={tag} className={styles.serviceTag}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  {sv.notes && (
+                    <div style={{ fontSize: "0.85rem", color: "var(--accent-gold)", fontStyle: "italic", marginTop: "0.25rem" }}>
+                      {sv.notes}
+                    </div>
+                  )}
                 </div>
                 <span className={styles.servicePrice}>
                   {formatVND(sv.price)}
