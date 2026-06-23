@@ -65,7 +65,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               where: { id: itm.id },
               data: {
                 discount: itemDisc,
-                staffId: itm.staffId || null,
+                staff: itm.staffId ? { connect: { id: itm.staffId } } : { disconnect: true },
               },
             });
           }
@@ -100,7 +100,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const updated = await tx.invoice.update({
         where: { id },
         data: {
-          staffId,
+          staff: { connect: { id: staffId } },
           discount: invoiceDisc,
           finalAmount: newFinalAmount,
           paymentType,
