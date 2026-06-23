@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       discount = 0, // Invoice-level overall discount
       finalAmount,
       paymentType,
+      installmentType,
       installmentMonths,
       downPayment = 0,
       bankFee = 0,
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
           discount: Number(discount),
           finalAmount: finalAmountNum,
           paymentType,
+          installmentType: paymentType === "installment" ? (installmentType || "counter") : null,
           installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
           bankFee: bankFeeNum,
           internalNotes: internalNotes || null,

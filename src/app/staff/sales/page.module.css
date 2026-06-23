@@ -548,3 +548,83 @@
   color: var(--accent-rose);
 }
 
+.tabContainer {
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+
+.tabBtn:hover {
+  color: var(--text-primary);
+  background: rgba(197, 160, 89, 0.05);
+}
+
+.tabActive {
+  background: var(--grad-premium);
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(197, 160, 89, 0.25);
+}
+
+.checkboxItemsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  background: var(--bg-secondary);
+  margin-top: 0.5rem;
+}
+
+.checkboxItemLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.checkboxItemLabel:hover {
+  border-color: var(--accent-gold);
+  background: rgba(197, 160, 89, 0.05);
+}
+
+.checkboxItemText {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.checkboxItemPrice {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+

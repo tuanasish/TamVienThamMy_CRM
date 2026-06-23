@@ -97,6 +97,7 @@ model Invoice {
   discount          Decimal               @default(0) @db.Decimal(12, 2)
   finalAmount       Decimal               @db.Decimal(12, 2)
   paymentType       String                // 'cash' or 'installment'
+  installmentType   String?               // 'home_credit', 'mirae_asset', 'counter'
   installmentMonths Int?                  // 6, 9, 12
   bankFee           Decimal               @default(0) @db.Decimal(12, 2)
   internalNotes     String?

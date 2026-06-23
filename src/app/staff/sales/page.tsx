@@ -93,6 +93,7 @@ export default async function SalesPage() {
     id: s.id,
     name: s.name,
     price: Number(s.price),
+    type: s.type,
   }));
 
   const mappedCardTemplates = cardTemplates.map((c) => ({

@@ -25,6 +25,7 @@ interface ServiceProp {
   id: string;
   name: string;
   price: number;
+  type: string;
 }
 
 interface CardTemplateProp {
@@ -81,6 +82,7 @@ export default function CreateInvoiceForm({
   const [discount, setDiscount] = useState("0"); // Invoice level overall discount
   const [paymentType, setPaymentType] = useState<"cash" | "installment">("cash");
   const [installmentMonths, setInstallmentMonths] = useState("6");
+  const [installmentType, setInstallmentType] = useState<string>("counter");
   const [downPayment, setDownPayment] = useState("0");
   const [bankFee, setBankFee] = useState("0");
   const [internalNotes, setInternalNotes] = useState("");
@@ -88,9 +90,11 @@ export default function CreateInvoiceForm({
   const [loading, setLoading] = useState(false);
 
   // Selector fields
-  const [selectedItemType, setSelectedItemType] = useState<"service" | "card">("service");
+  const [selectedItemType, setSelectedItemType] = useState<"service" | "product" | "card">("service");
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [itemSearch, setItemSearch] = useState("");
+  const [showItemSuggestions, setShowItemSuggestions] = useState(false);
 
   // Derived calculation fields
   const [totalAmount, setTotalAmount] = useState(0);
@@ -120,6 +124,21 @@ export default function CreateInvoiceForm({
     const q = customerSearch.toLowerCase();
     return c.fullName.toLowerCase().includes(q) || c.phone.includes(q);
   });
+
+  const filteredItems = (() => {
+    const q = itemSearch.toLowerCase();
+    if (selectedItemType === "service") {
+      return services
+        .filter((sv) => sv.type === "service")
+        .filter((sv) => sv.name.toLowerCase().includes(q));
+    } else if (selectedItemType === "product") {
+      return services
+        .filter((sv) => sv.type === "product")
+        .filter((sv) => sv.name.toLowerCase().includes(q));
+    } else {
+      return cardTemplates.filter((tc) => tc.name.toLowerCase().includes(q));
+    }
+  })();
 
   // Update calculations when items, overall discount, or payment details change
   useEffect(() => {
@@ -167,13 +186,12 @@ export default function CreateInvoiceForm({
     // Find item details
     let itemDetails: SelectedItem | undefined;
     if (selectedItemType === "service") {
-      const s = services.find((sv) => sv.id === selectedItemId);
+      const s = services.find((sv) => sv.id === selectedItemId && sv.type === "service");
       if (s) {
-        // Find if this is service or product based on db search
         itemDetails = {
           id: s.id,
           name: s.name,
-          itemType: "service", // Default type
+          itemType: "service",
           price: s.price,
           quantity: 1,
           totalSessions: 1, // Default 1 session
@@ -181,7 +199,20 @@ export default function CreateInvoiceForm({
           staffId: staffId || "",
         };
       }
-    } else {
+    } else if (selectedItemType === "product") {
+      const s = services.find((sv) => sv.id === selectedItemId && sv.type === "product");
+      if (s) {
+        itemDetails = {
+          id: s.id,
+          name: s.name,
+          itemType: "product",
+          price: s.price,
+          quantity: 1,
+          discount: "0",
+          staffId: staffId || "",
+        };
+      }
+    } else if (selectedItemType === "card") {
       const c = cardTemplates.find((tc) => tc.id === selectedItemId);
       if (c) {
         itemDetails = {
@@ -205,6 +236,7 @@ export default function CreateInvoiceForm({
       }
       setSelectedItems([...selectedItems, itemDetails]);
       setSelectedItemId("");
+      setItemSearch("");
       setError("");
     }
   };
@@ -289,6 +321,7 @@ export default function CreateInvoiceForm({
           discount: Number(parseMoneyInput(discount)),
           finalAmount,
           paymentType,
+          installmentType: paymentType === "installment" ? installmentType : undefined,
           installmentMonths: paymentType === "installment" ? Number(installmentMonths) : undefined,
           downPayment: paymentType === "installment" ? Number(parseMoneyInput(downPayment)) : 0,
           bankFee: paymentType === "installment" ? Number(parseMoneyInput(bankFee)) : 0,
@@ -431,55 +464,155 @@ export default function CreateInvoiceForm({
       {/* 2. Item selector box */}
       <div className={styles.sectionTitle}>Chọn Dịch vụ, Sản phẩm & Thẻ nạp</div>
       <div className={styles.itemSelectionBox}>
-        <div className={styles.formGrid} style={{ marginBottom: 0, alignItems: "flex-end" }}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Phân loại mặt hàng</label>
-            <select
-              className={styles.select}
-              value={selectedItemType}
-              onChange={(e) => {
-                setSelectedItemType(e.target.value as any);
-                setSelectedItemId("");
-              }}
-              disabled={loading}
-            >
-              <option value="service">Dịch vụ & Sản phẩm</option>
-              <option value="card">Thẻ thành viên (Thẻ nạp)</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup} style={{ flexGrow: 2 }}>
-            <label className={styles.label}>Chọn mặt hàng cụ thể</label>
-            <select
-              className={styles.select}
-              value={selectedItemId}
-              onChange={(e) => setSelectedItemId(e.target.value)}
-              disabled={loading}
-            >
-              <option value="">-- Chọn mặt hàng --</option>
-              {selectedItemType === "service"
-                ? services.map((sv) => (
-                    <option key={sv.id} value={sv.id}>
-                      {sv.name} ({sv.price.toLocaleString("vi-VN")}đ)
-                    </option>
-                  ))
-                : cardTemplates.map((tc) => (
-                    <option key={tc.id} value={tc.id}>
-                      {tc.name} (Bán: {tc.price.toLocaleString("vi-VN")}đ | Nhận: {tc.value.toLocaleString("vi-VN")}đ)
-                    </option>
-                  ))}
-            </select>
-          </div>
-
+        {/* Tab Selection Bar */}
+        <div className={styles.tabContainer}>
           <button
             type="button"
-            onClick={handleAddItem}
-            className={styles.submitBtn}
-            style={{ width: "auto", height: "42px", padding: "0 1.5rem" }}
+            className={`${styles.tabBtn} ${selectedItemType === "service" ? styles.tabActive : ""}`}
+            onClick={() => {
+              setSelectedItemType("service");
+              setSelectedItemId("");
+              setItemSearch("");
+              setShowItemSuggestions(false);
+            }}
             disabled={loading}
           >
-            <Plus size={16} /> Thêm vào đơn
+            Dịch vụ
           </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${selectedItemType === "product" ? styles.tabActive : ""}`}
+            onClick={() => {
+              setSelectedItemType("product");
+              setSelectedItemId("");
+              setItemSearch("");
+              setShowItemSuggestions(false);
+            }}
+            disabled={loading}
+          >
+            Sản phẩm
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${selectedItemType === "card" ? styles.tabActive : ""}`}
+            onClick={() => {
+              setSelectedItemType("card");
+              setSelectedItemId("");
+              setItemSearch("");
+              setShowItemSuggestions(false);
+            }}
+            disabled={loading}
+          >
+            Thẻ thành viên
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Tìm kiếm nhanh mặt hàng</label>
+            <div className={styles.inputWrapper}>
+              <input
+                type="text"
+                className={styles.input}
+                placeholder={`Nhập tên để tìm kiếm nhanh ${
+                  selectedItemType === "service"
+                    ? "dịch vụ"
+                    : selectedItemType === "product"
+                    ? "sản phẩm"
+                    : "thẻ thành viên"
+                }...`}
+                value={itemSearch}
+                onChange={(e) => setItemSearch(e.target.value)}
+                disabled={loading}
+              />
+              {itemSearch && (
+                <button
+                  type="button"
+                  onClick={() => setItemSearch("")}
+                  className={styles.inputClearBtn}
+                  title="Xóa tìm kiếm"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.checkboxItemsContainer}>
+            {filteredItems.length === 0 ? (
+              <div className={styles.suggestionEmpty} style={{ gridColumn: "span 3", padding: "1rem" }}>
+                Không tìm thấy mặt hàng nào phù hợp
+              </div>
+            ) : (
+              filteredItems.map((item) => {
+                const isChecked = selectedItems.some(
+                  (itm) => itm.id === item.id && itm.itemType === selectedItemType
+                );
+                return (
+                  <label key={item.id} className={styles.checkboxItemLabel}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          let newItem: SelectedItem;
+                          if (selectedItemType === "service") {
+                            newItem = {
+                              id: item.id,
+                              name: item.name,
+                              itemType: "service",
+                              price: item.price,
+                              quantity: 1,
+                              totalSessions: 1,
+                              discount: "0",
+                              staffId: staffId || "",
+                            };
+                          } else if (selectedItemType === "product") {
+                            newItem = {
+                              id: item.id,
+                              name: item.name,
+                              itemType: "product",
+                              price: item.price,
+                              quantity: 1,
+                              discount: "0",
+                              staffId: staffId || "",
+                            };
+                          } else {
+                            newItem = {
+                              id: item.id,
+                              name: item.name,
+                              itemType: "card",
+                              price: item.price,
+                              quantity: 1,
+                              discount: "0",
+                              staffId: staffId || "",
+                            };
+                          }
+                          setSelectedItems([...selectedItems, newItem]);
+                        } else {
+                          setSelectedItems(
+                            selectedItems.filter(
+                              (itm) => !(itm.id === item.id && itm.itemType === selectedItemType)
+                            )
+                          );
+                        }
+                      }}
+                      disabled={loading}
+                      style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                    />
+                    <span className={styles.checkboxItemText}>
+                      <strong>{item.name}</strong>
+                      <span className={styles.checkboxItemPrice}>
+                        {selectedItemType === "card"
+                          ? `Bán: ${item.price.toLocaleString("vi-VN")}đ | Nhận: ${(item as any).value.toLocaleString("vi-VN")}đ`
+                          : `${item.price.toLocaleString("vi-VN")}đ`}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Selected Items List */}
@@ -601,6 +734,20 @@ export default function CreateInvoiceForm({
 
         {paymentType === "installment" && (
           <>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Loại trả góp (Đối tác / Hình thức)</label>
+              <select
+                className={styles.select}
+                value={installmentType}
+                onChange={(e) => setInstallmentType(e.target.value)}
+                disabled={loading}
+              >
+                <option value="home_credit">Home Credit</option>
+                <option value="mirae_asset">Mirae Asset</option>
+                <option value="counter">Trả góp tại quầy (Spa)</option>
+              </select>
+            </div>
+
             <div className={styles.formGroup}>
               <label className={styles.label}>Kỳ hạn trả góp (tháng)</label>
               <select
