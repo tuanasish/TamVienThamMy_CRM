@@ -63,7 +63,6 @@ export default function AppointmentsManager({
     const today = new Date();
     return today.toLocaleDateString("sv-SE"); // YYYY-MM-DD in local time
   });
-  const [filterStatus, setFilterStatus] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
   const adjustDate = (days: number) => {
@@ -84,7 +83,6 @@ export default function AppointmentsManager({
   const [editingAppt, setEditingAppt] = useState<AppointmentProp | null>(null);
   const [editDateTime, setEditDateTime] = useState("");
   const [editNotes, setEditNotes] = useState("");
-  const [editStatus, setEditStatus] = useState("");
 
   // Filter active appointments only (pending and checked_in)
   const activeAppointments = appointments.filter(
@@ -99,12 +97,7 @@ export default function AppointmentsManager({
       if (apptDateStr !== filterDate) return false;
     }
 
-    // 2. Status match
-    if (filterStatus && appt.status !== filterStatus) {
-      return false;
-    }
-
-    // 3. Search match (customer name or phone)
+    // 2. Search match (customer name or phone)
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       const nameMatch = appt.customer.fullName.toLowerCase().includes(lowerSearch);
@@ -262,7 +255,6 @@ export default function AppointmentsManager({
         body: JSON.stringify({
           dateTime: editDateTime,
           notes: editNotes,
-          status: editStatus,
         }),
       });
       const data = await response.json();
@@ -301,13 +293,11 @@ export default function AppointmentsManager({
     const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
     setEditDateTime(localISOTime);
     setEditNotes(appt.notes || "");
-    setEditStatus(appt.status);
     setShowEditModal(true);
   };
 
   const clearFilters = () => {
     setFilterDate("");
-    setFilterStatus("");
     setSearchTerm("");
   };
 
@@ -389,21 +379,8 @@ export default function AppointmentsManager({
             </div>
           </div>
 
-          <div className={styles.filterGroup}>
-            <label className={styles.label}>Trạng thái</label>
-            <select
-              className={styles.select}
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">-- Tất cả hoạt động --</option>
-              <option value="pending">Chờ khách đến (Đã hẹn)</option>
-              <option value="checked_in">Đã check-in</option>
-            </select>
-          </div>
-
           <div style={{ alignSelf: "flex-end", height: "fit-content" }}>
-            {(filterDate || filterStatus || searchTerm) && (
+            {(filterDate || searchTerm) && (
               <button onClick={clearFilters} className={styles.clearFiltersBtn}>
                 Xóa bộ lọc
               </button>
@@ -442,7 +419,6 @@ export default function AppointmentsManager({
                 <th className={styles.th}>Thời gian</th>
                 <th className={styles.th}>Khách hàng</th>
                 <th className={styles.th}>Ghi chú dịch vụ mong muốn</th>
-                <th className={styles.th}>Trạng thái</th>
                 <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
               </tr>
             </thead>
@@ -479,52 +455,26 @@ export default function AppointmentsManager({
                         <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>Không ghi chú</span>
                       )}
                     </td>
-                    <td className={styles.td}>
-                      {appt.status === "pending" && <span className={`${styles.badge} ${styles.badgePending}`}>Chờ khách đến</span>}
-                      {appt.status === "checked_in" && <span className={`${styles.badge} ${styles.badgeCheckedIn}`}>Đã Check-in</span>}
-                      {appt.status === "completed" && <span className={`${styles.badge} ${styles.badgeCompleted}`}>Đã xong</span>}
-                      {appt.status === "cancelled" && <span className={`${styles.badge} ${styles.badgeCancelled}`}>Đã hủy</span>}
-                    </td>
                     <td className={styles.td} style={{ textAlign: "right" }}>
                       <div className={styles.btnGroup}>
-                        {appt.status === "pending" && (
-                          <>
-                            <button
-                              onClick={() => handleCheckIn(appt.id)}
-                              disabled={loading}
-                              className={`${styles.actionBtn} ${styles.btnCheckIn}`}
-                              title="Check-in cho khách"
-                            >
-                              <Check size={14} /> Check in
-                            </button>
-                            <button
-                              onClick={() => handleCancel(appt.id)}
-                              disabled={loading}
-                              className={`${styles.actionBtn} ${styles.btnCancel}`}
-                              title="Hủy lịch hẹn"
-                            >
-                              Hủy
-                            </button>
-                          </>
-                        )}
-
                         <button
                           onClick={() => openEditModal(appt)}
                           disabled={loading}
                           className={`${styles.actionBtn}`}
-                          style={{ background: "transparent", color: "var(--accent-gold)" }}
-                          title="Sửa thông tin"
+                          style={{ background: "transparent", color: "var(--accent-gold)", borderColor: "var(--border-color)" }}
+                          title="Đổi lịch / Sửa ghi chú"
                         >
-                          <Edit2 size={14} /> Sửa
+                          <Edit2 size={14} /> Đổi lịch
                         </button>
 
                         <button
                           onClick={() => handleDelete(appt.id)}
                           disabled={loading}
                           className={`${styles.actionBtn} ${styles.btnDelete}`}
+                          style={{ borderColor: "var(--border-color)" }}
                           title="Xóa lịch hẹn"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} /> Xóa
                         </button>
                       </div>
                     </td>
@@ -658,19 +608,6 @@ export default function AppointmentsManager({
                   onChange={(e) => setEditDateTime(e.target.value)}
                   required
                 />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Trạng thái lịch hẹn</label>
-                <select
-                  className={styles.select}
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  required
-                >
-                  <option value="pending">Chờ khách đến (Đã hẹn)</option>
-                  <option value="checked_in">Đã check-in</option>
-                </select>
               </div>
 
               <div className={styles.formGroup}>
