@@ -6,28 +6,38 @@
 
 .sidebar {
   width: 260px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 1.5rem;
   position: fixed;
   height: 100vh;
   left: 0;
   top: 0;
   z-index: 10;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+:global([data-theme="light"]) .sidebar {
+  background: rgba(243, 234, 224, 0.85);
+  box-shadow: 4px 0 24px rgba(44, 37, 35, 0.03);
+}
+
+.sidebarTop {
+  display: flex;
+  flex-direction: column;
 }
 
 .brand {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  background: var(--grad-premium);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 3rem;
-  text-transform: uppercase;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 1.25rem 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2rem;
 }
 
 .menuList {
@@ -45,18 +55,23 @@
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .menuItem:hover {
-  background: rgba(197, 160, 89, 0.05);
+  background: rgba(223, 183, 108, 0.08);
   color: var(--accent-gold);
+  transform: translateX(2px);
+}
+
+:global([data-theme="light"]) .menuItem:hover {
+  background: rgba(179, 139, 67, 0.08);
 }
 
 .activeMenuItem {
   background: var(--grad-premium);
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(197, 160, 89, 0.15);
+  box-shadow: 0 4px 15px rgba(223, 183, 108, 0.3);
 }
 
 .footerSection {
@@ -65,9 +80,15 @@
   gap: 1.25rem;
 }
 
+.userSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+
 .userInfo {
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
   font-size: 0.875rem;
 }
 
@@ -101,9 +122,125 @@
   border-color: rgba(220, 53, 69, 0.1);
 }
 
+.mobileHeader {
+  display: none;
+}
+
+.logoutIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.08);
+  transition: all 0.2s ease;
+}
+
+.logoutIconBtn:hover {
+  background: rgba(220, 53, 69, 0.15);
+  transform: scale(1.05);
+}
+
 .mainContent {
   margin-left: 260px;
   flex: 1;
   padding: 2.5rem;
   min-height: 100vh;
+}
+
+/* Mobile responsive layout (max-width: 768px) */
+@media (max-width: 768px) {
+  .mobileHeader {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  :global([data-theme="light"]) .mobileHeader {
+    background: rgba(243, 234, 224, 0.85);
+    box-shadow: 0 4px 15px rgba(44, 37, 35, 0.02);
+  }
+
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    width: 100%;
+    height: 65px;
+    flex-direction: row;
+    padding: 0 0.5rem;
+    border-right: none;
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    border-radius: 0;
+  }
+
+  .brand, .footerSection {
+    display: none;
+  }
+
+  .sidebarTop {
+    width: 100%;
+    height: 100%;
+  }
+
+  .menuList {
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    gap: 0;
+  }
+
+  .menuItem {
+    flex-direction: column;
+    gap: 3px;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.65rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    min-width: 50px;
+    flex: 1;
+    text-align: center;
+    color: var(--text-secondary);
+  }
+
+  .menuItem span {
+    font-size: 0.6rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .menuItem svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .menuItem:hover {
+    transform: none;
+  }
+
+  .mainContent {
+    margin-left: 0;
+    padding: 5rem 1rem 5.5rem 1rem;
+    width: 100%;
+  }
 }

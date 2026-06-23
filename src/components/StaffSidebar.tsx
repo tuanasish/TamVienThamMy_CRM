@@ -49,41 +49,55 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
   };
 
   return (
-    <aside className={styles.sidebar}>
-      <div>
-        <div className={styles.brand} style={{ display: "flex", justifyContent: "center", padding: "0.5rem 0 1.25rem 0", borderBottom: "1px solid var(--border-color)" }}>
-          <Logo size="medium" />
-        </div>
-        <nav className={styles.menuList} style={{ marginTop: "1.5rem" }}>
-          {menuItems.map((item) => {
-            const isActive = pathname === item.path || (item.path !== "/staff" && pathname.startsWith(item.path));
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`${styles.menuItem} ${isActive ? styles.activeMenuItem : ""}`}
-              >
-                {item.icon}
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className={styles.footerSection}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", width: "100%" }}>
-          <div className={styles.userInfo} style={{ margin: 0 }}>
-            <div className={styles.userLabel}>{user.fullName}</div>
-            <div className={styles.userRole}>Nhân viên Lễ tân</div>
-          </div>
+    <>
+      {/* Mobile Top Header */}
+      <header className={styles.mobileHeader}>
+        <Logo size="small" />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <ThemeToggle />
+          <button onClick={handleLogout} className={styles.logoutIconBtn} title="Đăng xuất">
+            <LogOut size={20} />
+          </button>
         </div>
-        <button onClick={handleLogout} className={styles.logoutBtn}>
-          <LogOut size={20} />
-          <span>Đăng xuất</span>
-        </button>
-      </div>
-    </aside>
+      </header>
+
+      {/* Main Sidebar / Bottom Navigation */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarTop}>
+          <div className={styles.brand}>
+            <Logo size="medium" />
+          </div>
+          <nav className={styles.menuList}>
+            {menuItems.map((item) => {
+              const isActive = pathname === item.path || (item.path !== "/staff" && pathname.startsWith(item.path));
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`${styles.menuItem} ${isActive ? styles.activeMenuItem : ""}`}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className={styles.footerSection}>
+          <div className={styles.userSection}>
+            <div className={styles.userInfo}>
+              <div className={styles.userLabel}>{user.fullName}</div>
+              <div className={styles.userRole}>Nhân viên Lễ tân</div>
+            </div>
+            <ThemeToggle />
+          </div>
+          <button onClick={handleLogout} className={styles.logoutBtn}>
+            <LogOut size={20} />
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

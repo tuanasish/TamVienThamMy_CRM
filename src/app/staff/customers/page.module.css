@@ -53,7 +53,8 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm);
 }
 
@@ -199,4 +200,35 @@
 
 .createBtn:hover {
   opacity: 0.95;
+}
+
+@media (max-width: 600px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .header h1 {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  .searchBar {
+    max-width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchBtn {
+    text-align: center;
+    justify-content: center;
+  }
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .formFull {
+    grid-column: span 1;
+  }
+  .modal {
+    padding: 1.5rem 1.25rem;
+    max-width: 95%;
+  }
 }
