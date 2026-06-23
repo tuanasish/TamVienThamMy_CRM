@@ -4,7 +4,6 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
 import { LogIn, ArrowLeft } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 
 function LoginForm() {
@@ -117,9 +116,6 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className={styles.container}>
-      <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem", zIndex: 10 }}>
-        <ThemeToggle />
-      </div>
       <Suspense fallback={<div className={styles.card}>Đang tải trang đăng nhập...</div>}>
         <LoginForm />
       </Suspense>

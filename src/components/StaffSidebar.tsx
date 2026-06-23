@@ -12,7 +12,6 @@ import {
   LogOut,
   Sparkles
 } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 
 interface StaffSidebarProps {
@@ -54,7 +53,6 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
       <header className={styles.mobileHeader}>
         <Logo size="small" />
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <ThemeToggle />
           <button onClick={handleLogout} className={styles.logoutIconBtn} title="Đăng xuất">
             <LogOut size={20} />
           </button>
@@ -90,7 +88,6 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
               <div className={styles.userLabel}>{user.fullName}</div>
               <div className={styles.userRole}>Nhân viên Lễ tân</div>
             </div>
-            <ThemeToggle />
           </div>
           <button onClick={handleLogout} className={styles.logoutBtn}>
             <LogOut size={20} />

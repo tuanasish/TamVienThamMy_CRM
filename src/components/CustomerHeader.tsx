@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import styles from "@/app/customer/layout.module.css";
-import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 
 interface CustomerHeaderProps {
@@ -43,7 +42,7 @@ export default function CustomerHeader({ user }: CustomerHeaderProps) {
           <span className={styles.userRole}>Hạng: {user.tier}</span>
         </div>
 
-        <ThemeToggle />
+
 
         <button onClick={handleLogout} className={styles.logoutBtn}>
           <LogOut size={16} />
