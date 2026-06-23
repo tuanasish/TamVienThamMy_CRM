@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calculateTier } from "../customers/route";
-import { Prisma } from "@prisma/client";
 
 // GET all invoices
 export async function GET() {
@@ -11,7 +10,15 @@ export async function GET() {
       include: {
         customer: true,
         staff: true,
-        items: true,
+        items: {
+          include: {
+            staff: {
+              select: {
+                fullName: true,
+              },
+            },
+          },
+        },
         schedules: true,
       },
     });
@@ -28,16 +35,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       customerId,
-      staffId,
+      staffId, // Main cashier staff
       totalAmount,
-      discount = 0,
+      discount = 0, // Invoice-level overall discount
       finalAmount,
       paymentType,
       installmentMonths,
       downPayment = 0,
       bankFee = 0,
       internalNotes,
-      items, // array of items
+      items, // array of items: { itemType, itemId, price, quantity, discount, staffId }
+      appointmentId, // optional appointment link
     } = body;
 
     // Validate inputs
@@ -75,7 +83,7 @@ export async function POST(request: Request) {
       const staff = await tx.staff.findUnique({
         where: { id: staffId },
       });
-      if (!staff) throw new Error("Nhân viên không tồn tại");
+      if (!staff) throw new Error("Nhân viên thu ngân không tồn tại");
 
       // 3. Create core Invoice record
       const invoice = await tx.invoice.create({
@@ -94,14 +102,20 @@ export async function POST(request: Request) {
 
       // 4. Process invoice items and grant cards/treatments
       for (const item of items) {
-        // Create InvoiceItem
+        const itemPrice = Number(item.price);
+        const itemQty = Number(item.quantity || 1);
+        const itemDiscount = Number(item.discount || 0);
+
+        // Create InvoiceItem with details
         await tx.invoiceItem.create({
           data: {
             invoiceId: invoice.id,
-            itemType: item.itemType, // 'service' or 'card'
+            itemType: item.itemType, // 'service', 'product', or 'card'
             itemId: item.itemId,
-            price: Number(item.price),
-            quantity: Number(item.quantity || 1),
+            price: itemPrice,
+            quantity: itemQty,
+            discount: itemDiscount,
+            staffId: item.staffId || null,
           },
         });
 
@@ -123,26 +137,28 @@ export async function POST(request: Request) {
               currentBalance: template.value, // start with full promotional balance
             },
           });
-        } else if (item.itemType === "service") {
-          // Fetch service to confirm
+        } else if (item.itemType === "service" || item.itemType === "product") {
+          // Fetch service to confirm (both products and services are stored in Service table)
           const service = await tx.service.findUnique({
             where: { id: item.itemId },
           });
-          if (!service) throw new Error(`Không tìm thấy dịch vụ có ID ${item.itemId}`);
+          if (!service) throw new Error(`Không tìm thấy dịch vụ/sản phẩm có ID ${item.itemId}`);
 
-          // Determine sessions (default to 1, or custom package count, e.g. 5+1 = 6)
-          const totalSessions = Number(item.totalSessions || item.quantity || 1);
-
-          // Create CustomerTreatment
-          await tx.customerTreatment.create({
-            data: {
-              customerId,
-              serviceId: item.itemId,
-              totalSessions,
-              usedSessions: 0,
-              pricePaid: Number(item.price) * Number(item.quantity || 1),
-            },
-          });
+          // For services, create treatments package. For products, they are retail only (no sessions to treat)
+          if (service.type === "service") {
+            const totalSessions = Number(item.totalSessions || itemQty || 1);
+            
+            // Create CustomerTreatment
+            await tx.customerTreatment.create({
+              data: {
+                customerId,
+                serviceId: item.itemId,
+                totalSessions,
+                usedSessions: 0,
+                pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
+              },
+            });
+          }
         }
       }
 
@@ -180,7 +196,15 @@ export async function POST(request: Request) {
         }
       }
 
-      // 6. Update customer total spend and tier
+      // 6. Complete appointment if linked
+      if (appointmentId) {
+        await tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: "completed" },
+        });
+      }
+
+      // 7. Update customer total spend and tier
       const updatedTotalSpent = Number(customer.totalSpent) + finalAmountNum;
       const newTier = calculateTier(updatedTotalSpent);
 

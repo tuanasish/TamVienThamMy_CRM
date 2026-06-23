@@ -1,13 +1,20 @@
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
-import CreateInvoiceForm from "@/components/CreateInvoiceForm";
+import SalesDashboard from "@/components/SalesDashboard";
 
 export const metadata = {
-  title: "Tạo hóa đơn bán hàng - Spa CRM",
+  title: "Bàn làm việc bán hàng & Lịch hẹn - Spa CRM",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function SalesPage() {
-  // Parallel fetch DB lists
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  // Parallel fetch database records
   const customersPromise = db.customer.findMany({
     orderBy: { fullName: "asc" },
   });
@@ -24,14 +31,58 @@ export default async function SalesPage() {
     orderBy: { fullName: "asc" },
   });
 
-  const [customers, services, cardTemplates, staff] = await Promise.all([
+  const appointmentsPromise = db.appointment.findMany({
+    where: {
+      dateTime: {
+        gte: todayStart,
+        lte: todayEnd,
+      },
+    },
+    include: {
+      customer: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: {
+      dateTime: "asc",
+    },
+  });
+
+  const invoicesPromise = db.invoice.findMany({
+    where: {
+      createdAt: {
+        gte: todayStart,
+        lte: todayEnd,
+      },
+    },
+    include: {
+      customer: {
+        select: {
+          fullName: true,
+          phone: true,
+        },
+      },
+      items: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const [customers, services, cardTemplates, staff, appointments, invoices] = await Promise.all([
     customersPromise,
     servicesPromise,
     cardTemplatesPromise,
     staffPromise,
+    appointmentsPromise,
+    invoicesPromise,
   ]);
 
-  // Map to simple JSON structures to pass to client component safely (avoid Decimal object issues)
+  // Safe mappings (convert Decimal or objects to plain numbers/strings)
   const mappedCustomers = customers.map((c) => ({
     id: c.id,
     fullName: c.fullName,
@@ -56,20 +107,53 @@ export default async function SalesPage() {
     fullName: st.fullName,
   }));
 
+  const mappedAppointments = appointments.map((appt) => ({
+    id: appt.id,
+    customerId: appt.customerId,
+    customer: {
+      id: appt.customer.id,
+      fullName: appt.customer.fullName,
+      phone: appt.customer.phone,
+    },
+    dateTime: appt.dateTime.toISOString(),
+    status: appt.status,
+    notes: appt.notes,
+  }));
+
+  const mappedInvoices = invoices.map((inv) => ({
+    id: inv.id,
+    customerId: inv.customerId,
+    customer: {
+      fullName: inv.customer.fullName,
+      phone: inv.customer.phone,
+    },
+    totalAmount: Number(inv.totalAmount),
+    discount: Number(inv.discount),
+    finalAmount: Number(inv.finalAmount),
+    createdAt: inv.createdAt.toISOString(),
+    items: inv.items.map((item) => ({
+      id: item.id,
+      itemType: item.itemType,
+      itemId: item.itemId,
+      price: Number(item.price),
+      quantity: item.quantity,
+    })),
+  }));
+
   return (
     <div className={styles.container}>
       <header>
-        <h1 className={styles.title}>Lập hóa đơn bán hàng mới</h1>
+        <h1 className={styles.title}>Quầy bán hàng & Điều phối</h1>
       </header>
 
-      <section>
-        <CreateInvoiceForm
-          customers={mappedCustomers}
-          services={mappedServices}
-          cardTemplates={mappedCardTemplates}
-          staff={mappedStaff}
-        />
-      </section>
+      <SalesDashboard
+        customers={mappedCustomers}
+        services={mappedServices}
+        cardTemplates={mappedCardTemplates}
+        staff={mappedStaff}
+        initialAppointments={mappedAppointments}
+        initialInvoices={mappedInvoices}
+      />
     </div>
   );
 }

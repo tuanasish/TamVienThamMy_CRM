@@ -44,15 +44,21 @@ interface CreateInvoiceFormProps {
   services: ServiceProp[];
   cardTemplates: CardTemplateProp[];
   staff: StaffProp[];
+  initialCustomerId?: string;
+  appointmentId?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 interface SelectedItem {
   id: string;
   name: string;
-  itemType: "service" | "card";
+  itemType: "service" | "card" | "product";
   price: number;
   quantity: number;
   totalSessions?: number; // for services
+  discount: string; // money discount for this specific item line
+  staffId: string; // technician/sale assigned to this item
 }
 
 export default function CreateInvoiceForm({
@@ -60,13 +66,17 @@ export default function CreateInvoiceForm({
   services,
   cardTemplates,
   staff,
+  initialCustomerId,
+  appointmentId,
+  onSuccess,
+  onCancel,
 }: CreateInvoiceFormProps) {
   const router = useRouter();
 
   // State fields
-  const [customerId, setCustomerId] = useState("");
-  const [staffId, setStaffId] = useState("");
-  const [discount, setDiscount] = useState("0");
+  const [customerId, setCustomerId] = useState(initialCustomerId || "");
+  const [staffId, setStaffId] = useState(""); // Cashier staff
+  const [discount, setDiscount] = useState("0"); // Invoice level overall discount
   const [paymentType, setPaymentType] = useState<"cash" | "installment">("cash");
   const [installmentMonths, setInstallmentMonths] = useState("6");
   const [downPayment, setDownPayment] = useState("0");
@@ -85,11 +95,26 @@ export default function CreateInvoiceForm({
   const [finalAmount, setFinalAmount] = useState(0);
   const [previewInstallments, setPreviewInstallments] = useState<{ month: number; amount: number }[]>([]);
 
-  // Update calculations when items, discount, or payment details change
+  // Pre-fill customerId if prop changes
   useEffect(() => {
+    if (initialCustomerId) {
+      setCustomerId(initialCustomerId);
+    }
+  }, [initialCustomerId]);
+
+  // Update calculations when items, overall discount, or payment details change
+  useEffect(() => {
+    // Total price before any discounts
     const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const disc = Number(parseMoneyInput(discount)) || 0;
-    const final = Math.max(total - disc, 0);
+    
+    // Sum of all item-level discounts
+    const itemDiscountsSum = selectedItems.reduce((sum, item) => {
+      return sum + (Number(parseMoneyInput(item.discount || "0")) || 0);
+    }, 0);
+
+    const overallDisc = Number(parseMoneyInput(discount)) || 0;
+    const final = Math.max(total - itemDiscountsSum - overallDisc, 0);
+    
     setTotalAmount(total);
     setFinalAmount(final);
 
@@ -125,13 +150,16 @@ export default function CreateInvoiceForm({
     if (selectedItemType === "service") {
       const s = services.find((sv) => sv.id === selectedItemId);
       if (s) {
+        // Find if this is service or product based on db search
         itemDetails = {
           id: s.id,
           name: s.name,
-          itemType: "service",
+          itemType: "service", // Default type
           price: s.price,
           quantity: 1,
           totalSessions: 1, // Default 1 session
+          discount: "0",
+          staffId: staffId || "",
         };
       }
     } else {
@@ -143,6 +171,8 @@ export default function CreateInvoiceForm({
           itemType: "card",
           price: c.price,
           quantity: 1,
+          discount: "0",
+          staffId: staffId || "",
         };
       }
     }
@@ -180,6 +210,24 @@ export default function CreateInvoiceForm({
     );
   };
 
+  // Handle custom discount per item
+  const handleItemDiscountChange = (id: string, type: string, disc: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id && item.itemType === type ? { ...item, discount: formatMoneyInput(disc) } : item
+      )
+    );
+  };
+
+  // Handle staff assignment per item
+  const handleItemStaffChange = (id: string, type: string, selectedStaffId: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id && item.itemType === type ? { ...item, staffId: selectedStaffId } : item
+      )
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -191,12 +239,20 @@ export default function CreateInvoiceForm({
       return;
     }
     if (!staffId) {
-      setError("Vui lòng chọn nhân viên Sale");
+      setError("Vui lòng chọn nhân viên thu ngân");
       setLoading(false);
       return;
     }
     if (selectedItems.length === 0) {
       setError("Hóa đơn phải có ít nhất 1 dịch vụ hoặc thẻ nạp");
+      setLoading(false);
+      return;
+    }
+
+    // Verify all selected items have a staff assigned
+    const missingStaff = selectedItems.find((itm) => !itm.staffId);
+    if (missingStaff) {
+      setError(`Vui lòng chọn nhân viên chịu trách nhiệm/sale cho món hàng "${missingStaff.name}"`);
       setLoading(false);
       return;
     }
@@ -224,7 +280,10 @@ export default function CreateInvoiceForm({
             price: itm.price,
             quantity: itm.quantity,
             totalSessions: itm.itemType === "service" ? itm.totalSessions : undefined,
+            discount: Number(parseMoneyInput(itm.discount || "0")) || 0,
+            staffId: itm.staffId,
           })),
+          appointmentId: appointmentId || undefined,
         }),
       });
 
@@ -234,8 +293,12 @@ export default function CreateInvoiceForm({
         throw new Error(data.error || "Tạo hóa đơn thất bại");
       }
 
-      router.push(`/staff/customers/${customerId}`);
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push(`/staff/customers/${customerId}`);
+        router.refresh();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -244,24 +307,24 @@ export default function CreateInvoiceForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.card}>
+    <form onSubmit={handleSubmit} className={styles.card} style={{ border: "none", padding: 0, boxShadow: "none", background: "transparent" }}>
       {error && (
         <div style={{ color: "#dc3545", background: "rgba(220,53,69,0.1)", padding: "1rem", borderRadius: "4px", fontSize: "0.95rem", fontWeight: "600", marginBottom: "1.5rem" }}>
           {error}
         </div>
       )}
 
-      {/* 1. Customer & Sale selection */}
-      <div className={styles.sectionTitle}>Thông tin khách hàng & bán hàng</div>
+      {/* 1. Customer & Cashier selection */}
+      <div className={styles.sectionTitle}>Thông tin khách hàng & Bán hàng</div>
       <div className={styles.formGrid}>
         <div className={styles.formGroup}>
-          <label className={styles.label}>Chọn Khách Hàng *</label>
+          <label className={styles.label}>Khách Hàng *</label>
           <select
             className={styles.select}
             value={customerId}
             onChange={(e) => setCustomerId(e.target.value)}
             required
-            disabled={loading}
+            disabled={loading || !!initialCustomerId}
           >
             <option value="">-- Chọn khách hàng --</option>
             {customers.map((c) => (
@@ -273,7 +336,7 @@ export default function CreateInvoiceForm({
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Nhân viên Sale (Doanh số) *</label>
+          <label className={styles.label}>Thu ngân / Người lập hóa đơn *</label>
           <select
             className={styles.select}
             value={staffId}
@@ -281,7 +344,7 @@ export default function CreateInvoiceForm({
             required
             disabled={loading}
           >
-            <option value="">-- Chọn nhân viên sale --</option>
+            <option value="">-- Chọn nhân viên thu ngân --</option>
             {staff.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.fullName}
@@ -292,11 +355,11 @@ export default function CreateInvoiceForm({
       </div>
 
       {/* 2. Item selector box */}
-      <div className={styles.sectionTitle}>Sản phẩm & Dịch vụ bán hàng</div>
+      <div className={styles.sectionTitle}>Chọn Dịch vụ, Sản phẩm & Thẻ nạp</div>
       <div className={styles.itemSelectionBox}>
         <div className={styles.formGrid} style={{ marginBottom: 0, alignItems: "flex-end" }}>
           <div className={styles.formGroup}>
-            <label className={styles.label}>Loại món hàng</label>
+            <label className={styles.label}>Phân loại mặt hàng</label>
             <select
               className={styles.select}
               value={selectedItemType}
@@ -306,104 +369,131 @@ export default function CreateInvoiceForm({
               }}
               disabled={loading}
             >
-              <option value="service">Dịch vụ (Liệu trình)</option>
-              <option value="card">Thẻ tài khoản trả trước</option>
+              <option value="service">Dịch vụ & Sản phẩm</option>
+              <option value="card">Thẻ thành viên (Thẻ nạp)</option>
             </select>
           </div>
 
-          <div className={styles.formGroup} style={{ flex: 2 }}>
-            <label className={styles.label}>Chọn món cụ thể</label>
-            {selectedItemType === "service" ? (
-              <select
-                className={styles.select}
-                value={selectedItemId}
-                onChange={(e) => setSelectedItemId(e.target.value)}
-                disabled={loading}
-              >
-                <option value="">-- Chọn dịch vụ --</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.price.toLocaleString("vi-VN")}đ)
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select
-                className={styles.select}
-                value={selectedItemId}
-                onChange={(e) => setSelectedItemId(e.target.value)}
-                disabled={loading}
-              >
-                <option value="">-- Chọn thẻ nạp --</option>
-                {cardTemplates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {`${c.name} (Giá gốc: ${c.price.toLocaleString("vi-VN")}đ → Tài khoản: ${c.value.toLocaleString("vi-VN")}đ)`}
-                  </option>
-                ))}
-              </select>
-            )}
+          <div className={styles.formGroup} style={{ flexGrow: 2 }}>
+            <label className={styles.label}>Chọn mặt hàng cụ thể</label>
+            <select
+              className={styles.select}
+              value={selectedItemId}
+              onChange={(e) => setSelectedItemId(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">-- Chọn mặt hàng --</option>
+              {selectedItemType === "service"
+                ? services.map((sv) => (
+                    <option key={sv.id} value={sv.id}>
+                      {sv.name} ({sv.price.toLocaleString("vi-VN")}đ)
+                    </option>
+                  ))
+                : cardTemplates.map((tc) => (
+                    <option key={tc.id} value={tc.id}>
+                      {tc.name} (Bán: {tc.price.toLocaleString("vi-VN")}đ | Nhận: {tc.value.toLocaleString("vi-VN")}đ)
+                    </option>
+                  ))}
+            </select>
           </div>
 
           <button
             type="button"
             onClick={handleAddItem}
             className={styles.submitBtn}
-            style={{ width: "auto", height: "38px", padding: "0 1.5rem" }}
+            style={{ width: "auto", height: "42px", padding: "0 1.5rem" }}
             disabled={loading}
           >
-            <Plus size={16} /> Thêm vào bill
+            <Plus size={16} /> Thêm vào đơn
           </button>
         </div>
 
-        {/* Selected items rows */}
+        {/* Selected Items List */}
         <div className={styles.selectedItemsList}>
-          {selectedItems.map((item) => (
-            <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow}>
-              <div className={styles.itemDetails}>
-                <span className={styles.itemName}>{item.name}</span>
-                <span className={styles.itemPrice}>
-                  Giá trị: <strong>{item.price.toLocaleString("vi-VN")}đ</strong>
-                </span>
-              </div>
+          {selectedItems.length === 0 ? (
+            <div className={styles.emptyText} style={{ padding: "1.5rem" }}>Chưa có mặt hàng nào được chọn.</div>
+          ) : (
+            selectedItems.map((item) => (
+              <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow} style={{ flexWrap: "wrap", gap: "1rem" }}>
+                <div className={styles.itemDetails} style={{ minWidth: "200px", flex: "1 1 auto" }}>
+                  <span className={styles.itemName}>{item.name}</span>
+                  <span className={styles.itemPrice}>
+                    Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong>
+                  </span>
+                </div>
 
-              <div className={styles.itemActions}>
-                {item.itemType === "service" && (
-                  <div className={styles.formGroup} style={{ width: "130px", flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-                    <label className={styles.label} style={{ whiteSpace: "nowrap" }}>Số buổi:</label>
+                <div className={styles.itemActions} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem" }}>
+                  {item.itemType === "service" && (
+                    <div className={styles.formGroup} style={{ width: "90px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
+                      <input
+                        type="number"
+                        className={styles.input}
+                        style={{ padding: "0.25rem 0.5rem", textAlign: "center", fontSize: "0.85rem" }}
+                        value={item.totalSessions || 1}
+                        onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                        min="1"
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+
+                  <div className={styles.formGroup} style={{ width: "70px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
                     <input
                       type="number"
                       className={styles.input}
-                      style={{ padding: "0.25rem 0.5rem", textAlign: "center" }}
-                      value={item.totalSessions || 1}
-                      onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                      style={{ padding: "0.25rem 0.5rem", textAlign: "center", fontSize: "0.85rem" }}
+                      value={item.quantity}
+                      onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
                       min="1"
                       disabled={loading}
                     />
                   </div>
-                )}
 
-                <div className={styles.formGroup} style={{ width: "110px", flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-                  <label className={styles.label} style={{ whiteSpace: "nowrap" }}>SL:</label>
-                  <input
-                    type="number"
-                    className={styles.input}
-                    style={{ padding: "0.25rem 0.5rem", textAlign: "center" }}
-                    value={item.quantity}
-                    onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
-                    min="1"
-                    disabled={loading}
+                  {/* CUSTOM DISCOUNT PER ITEM */}
+                  <div className={styles.formGroup} style={{ width: "120px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                      placeholder="0"
+                      value={item.discount}
+                      onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* STAFF / SALE SELECTION PER ITEM */}
+                  <div className={styles.formGroup} style={{ width: "160px", flexDirection: "row", alignItems: "center", gap: "0.35rem" }}>
+                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
+                    <select
+                      className={styles.select}
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                      value={item.staffId}
+                      onChange={(e) => handleItemStaffChange(item.id, item.itemType, e.target.value)}
+                      disabled={loading}
+                      required
+                    >
+                      <option value="">-- Chọn --</option>
+                      {staff.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Trash2
+                    size={16}
+                    style={{ cursor: "pointer", color: "var(--accent-rose)", marginLeft: "0.5rem" }}
+                    onClick={() => handleRemoveItem(item.id, item.itemType)}
                   />
                 </div>
-
-                <Trash2
-                  size={18}
-                  className={styles.removeBtn}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => handleRemoveItem(item.id, item.itemType)}
-                />
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -411,7 +501,7 @@ export default function CreateInvoiceForm({
       <div className={styles.sectionTitle}>Hình thức thanh toán</div>
       <div className={styles.formGrid}>
         <div className={styles.formGroup}>
-          <label className={styles.label}>Chiết khấu / Giảm giá (đ)</label>
+          <label className={styles.label}>Chiết khấu hóa đơn chung (đ)</label>
           <input
             type="text"
             className={styles.input}
@@ -481,7 +571,7 @@ export default function CreateInvoiceForm({
           <label className={styles.label}>Ghi chú nội bộ</label>
           <textarea
             className={styles.textarea}
-            placeholder="Ví dụ: trả góp qua thẻ tín dụng Sacombank..."
+            placeholder="Ví dụ: Khách thanh toán chuyển khoản qua QR Techcombank..."
             value={internalNotes}
             onChange={(e) => setInternalNotes(e.target.value)}
             disabled={loading}
@@ -493,12 +583,18 @@ export default function CreateInvoiceForm({
       {/* 4. Financial Summary */}
       <div className={styles.summarySection}>
         <div className={styles.summaryRow}>
-          <span>Cộng tiền hàng:</span>
+          <span>Cộng giá gốc:</span>
           <span>{totalAmount.toLocaleString("vi-VN")}đ</span>
         </div>
         <div className={styles.summaryRow}>
-          <span>Chiết khấu giảm giá:</span>
-          <span style={{ color: "#dc3545" }}>-{Number(discount || 0).toLocaleString("vi-VN")}đ</span>
+          <span>Giảm giá mặt hàng:</span>
+          <span style={{ color: "#dc3545" }}>
+            -{selectedItems.reduce((sum, itm) => sum + (Number(parseMoneyInput(itm.discount)) || 0), 0).toLocaleString("vi-VN")}đ
+          </span>
+        </div>
+        <div className={styles.summaryRow}>
+          <span>Chiết khấu chung:</span>
+          <span style={{ color: "#dc3545" }}>-{Number(parseMoneyInput(discount) || 0).toLocaleString("vi-VN")}đ</span>
         </div>
         <div className={`${styles.summaryRow} ${styles.totalRow}`}>
           <span>Tổng thanh toán:</span>
@@ -511,7 +607,7 @@ export default function CreateInvoiceForm({
             <div className={styles.scheduleGrid}>
               <div className={styles.scheduleCard}>
                 Trả trước:
-                <strong>{Number(downPayment || 0).toLocaleString("vi-VN")}đ</strong>
+                <strong>{Number(parseMoneyInput(downPayment) || 0).toLocaleString("vi-VN")}đ</strong>
               </div>
               {previewInstallments.map((inst) => (
                 <div key={inst.month} className={styles.scheduleCard}>
@@ -524,10 +620,22 @@ export default function CreateInvoiceForm({
         )}
       </div>
 
-      <button type="submit" className={styles.submitBtn} style={{ marginTop: "1rem" }} disabled={loading}>
-        <Receipt size={20} />
-        {loading ? "Đang xử lý..." : "Lập Hóa Đơn & Lưu"}
-      </button>
+      <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className={styles.submitBtn}
+            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", color: "var(--text-secondary)", boxShadow: "none" }}
+            disabled={loading}
+          >
+            Hủy
+          </button>
+        )}
+        <button type="submit" className={styles.submitBtn} disabled={loading} style={{ flex: 1 }}>
+          <Receipt size={20} /> Xuất hóa đơn & Ghi nhận
+        </button>
+      </div>
     </form>
   );
 }
