@@ -74,9 +74,16 @@ export default function AppointmentsManager({
   // Booking Modal State
   const [showBookModal, setShowBookModal] = useState(false);
   const [bookCustomer, setBookCustomer] = useState("");
+  const [bookCustomerSearch, setBookCustomerSearch] = useState("");
+  const [showBookSuggestions, setShowBookSuggestions] = useState(false);
   const [bookDateTime, setBookDateTime] = useState("");
   const [bookServiceId, setBookServiceId] = useState("");
   const [bookNotes, setBookNotes] = useState("");
+
+  const filteredBookCustomers = customers.filter((c) => {
+    const q = bookCustomerSearch.toLowerCase();
+    return c.fullName.toLowerCase().includes(q) || c.phone.includes(q);
+  });
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -228,6 +235,7 @@ export default function AppointmentsManager({
       
       // Reset form
       setBookCustomer("");
+      setBookCustomerSearch("");
       setBookDateTime("");
       setBookServiceId("");
       setBookNotes("");
@@ -400,7 +408,15 @@ export default function AppointmentsManager({
             />
           </div>
 
-          <button onClick={() => setShowBookModal(true)} className={styles.addBtn}>
+          <button
+            onClick={() => {
+              setBookCustomer("");
+              setBookCustomerSearch("");
+              setShowBookSuggestions(false);
+              setShowBookModal(true);
+            }}
+            className={styles.addBtn}
+          >
             <Plus size={18} /> Đặt lịch hẹn mới
           </button>
         </div>
@@ -500,19 +516,66 @@ export default function AppointmentsManager({
             <form onSubmit={handleCreate} className={styles.form}>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Khách hàng *</label>
-                <select
-                  className={styles.select}
-                  value={bookCustomer}
-                  onChange={(e) => setBookCustomer(e.target.value)}
-                  required
-                >
-                  <option value="">-- Chọn khách hàng --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} ({c.phone})
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.searchDropdownContainer}>
+                  <div className={styles.inputWrapper}>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      placeholder="Nhập tên hoặc số điện thoại để tìm..."
+                      value={bookCustomerSearch}
+                      onChange={(e) => {
+                        setBookCustomerSearch(e.target.value);
+                        setBookCustomer(""); // clear selected id
+                        setShowBookSuggestions(true);
+                      }}
+                      onFocus={() => setShowBookSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowBookSuggestions(false), 200)}
+                      required
+                      disabled={loading}
+                      style={{ paddingRight: "30px" }}
+                    />
+                    {bookCustomerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBookCustomerSearch("");
+                          setBookCustomer("");
+                        }}
+                        className={styles.inputClearBtn}
+                        title="Xóa lựa chọn"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {showBookSuggestions && (
+                    <div className={styles.suggestionsList}>
+                      {filteredBookCustomers.length === 0 ? (
+                        <div className={styles.suggestionEmpty}>
+                          Không tìm thấy khách hàng nào phù hợp
+                        </div>
+                      ) : (
+                        filteredBookCustomers.map((c) => (
+                          <div
+                            key={c.id}
+                            className={styles.suggestionItem}
+                            onClick={() => {
+                              setBookCustomer(c.id);
+                              setBookCustomerSearch(`${c.fullName} (${c.phone})`);
+                              setShowBookSuggestions(false);
+                            }}
+                          >
+                            <span className={styles.suggestionName}>{c.fullName}</span>
+                            <span className={styles.suggestionPhone}>{c.phone}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Hidden input to enforce HTML5 validation if submitted empty */}
+                <input type="hidden" value={bookCustomer} required name="customerId" />
               </div>
 
               <div className={styles.formGroup}>

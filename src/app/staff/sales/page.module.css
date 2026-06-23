@@ -468,3 +468,83 @@
 .closeBtn:hover {
   color: var(--text-primary);
 }
+
+.searchDropdownContainer {
+  position: relative;
+  width: 100%;
+}
+
+.suggestionsList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 99;
+  box-shadow: var(--shadow-md);
+  margin-top: 4px;
+}
+
+.suggestionItem {
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+
+.suggestionItem:hover {
+  background: rgba(197, 160, 89, 0.1);
+}
+
+.suggestionName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.suggestionPhone {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.suggestionEmpty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputClearBtn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inputClearBtn:hover {
+  color: var(--accent-rose);
+}
+

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/staff/sales/page.module.css";
-import { Receipt, Plus, Trash2 } from "lucide-react";
+import { Receipt, Plus, Trash2, X } from "lucide-react";
 
 const formatMoneyInput = (val: string) => {
   const clean = val.replace(/\D/g, "");
@@ -75,6 +75,8 @@ export default function CreateInvoiceForm({
 
   // State fields
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [staffId, setStaffId] = useState(""); // Cashier staff
   const [discount, setDiscount] = useState("0"); // Invoice level overall discount
   const [paymentType, setPaymentType] = useState<"cash" | "installment">("cash");
@@ -101,6 +103,23 @@ export default function CreateInvoiceForm({
       setCustomerId(initialCustomerId);
     }
   }, [initialCustomerId]);
+
+  // Pre-fill customerSearch text when customerId changes
+  useEffect(() => {
+    if (customerId) {
+      const selected = customers.find((c) => c.id === customerId);
+      if (selected) {
+        setCustomerSearch(`${selected.fullName} (${selected.phone})`);
+      }
+    } else {
+      setCustomerSearch("");
+    }
+  }, [customerId, customers]);
+
+  const filteredInvoiceCustomers = customers.filter((c) => {
+    const q = customerSearch.toLowerCase();
+    return c.fullName.toLowerCase().includes(q) || c.phone.includes(q);
+  });
 
   // Update calculations when items, overall discount, or payment details change
   useEffect(() => {
@@ -319,20 +338,74 @@ export default function CreateInvoiceForm({
       <div className={styles.formGrid}>
         <div className={styles.formGroup}>
           <label className={styles.label}>Khách Hàng *</label>
-          <select
-            className={styles.select}
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            required
-            disabled={loading || !!initialCustomerId}
-          >
-            <option value="">-- Chọn khách hàng --</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.fullName} ({c.phone})
-              </option>
-            ))}
-          </select>
+          {initialCustomerId ? (
+            <input
+              type="text"
+              className={styles.input}
+              value={customerSearch}
+              disabled
+            />
+          ) : (
+            <div className={styles.searchDropdownContainer}>
+              <div className={styles.inputWrapper}>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="Nhập tên hoặc số điện thoại để tìm..."
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setCustomerId(""); // clear selected id
+                    setShowCustomerSuggestions(true);
+                  }}
+                  onFocus={() => setShowCustomerSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 200)}
+                  required
+                  disabled={loading}
+                  style={{ paddingRight: "30px" }}
+                />
+                {customerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerSearch("");
+                      setCustomerId("");
+                    }}
+                    className={styles.inputClearBtn}
+                    title="Xóa lựa chọn"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              
+              {showCustomerSuggestions && (
+                <div className={styles.suggestionsList}>
+                  {filteredInvoiceCustomers.length === 0 ? (
+                    <div className={styles.suggestionEmpty}>
+                      Không tìm thấy khách hàng nào phù hợp
+                    </div>
+                  ) : (
+                    filteredInvoiceCustomers.map((c) => (
+                      <div
+                        key={c.id}
+                        className={styles.suggestionItem}
+                        onClick={() => {
+                          setCustomerId(c.id);
+                          setCustomerSearch(`${c.fullName} (${c.phone})`);
+                          setShowCustomerSuggestions(false);
+                        }}
+                      >
+                        <span className={styles.suggestionName}>{c.fullName}</span>
+                        <span className={styles.suggestionPhone}>{c.phone}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <input type="hidden" value={customerId} required name="customerId" />
         </div>
 
         <div className={styles.formGroup}>
