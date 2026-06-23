@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Login API Error:", error);
     return NextResponse.json(
-      { error: "Đã xảy ra lỗi trong quá trình đăng nhập" },
+      { error: `Đã xảy ra lỗi trong quá trình đăng nhập: ${error.message || error.toString()}` },
       { status: 500 }
     );
   }
