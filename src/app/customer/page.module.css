@@ -346,7 +346,7 @@
 /* ADMIN-STYLE CARD GRID QUICK BUTTONS */
 .dashboardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
 }
 
@@ -363,6 +363,45 @@
   text-decoration: none;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+@media (max-width: 768px) {
+  .dashboardGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+  .gridCardBtn {
+    padding: 1rem 0.5rem;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboardGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  .gridCardBtn {
+    padding: 0.75rem 0.25rem !important;
+    gap: 0.4rem !important;
+    border-radius: 8px !important;
+  }
+  .gridCardIcon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+  }
+  .gridCardIcon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .gridCardTitle {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+  }
+  .gridCardDesc {
+    display: none !important;
+  }
 }
 
 .gridCardBtn:hover {
