@@ -371,6 +371,26 @@
   border-color: var(--accent-gold);
 }
 
+.gridCardBtnHighlight {
+  background: var(--grad-premium) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 8px 25px rgba(197, 160, 89, 0.3) !important;
+}
+
+.gridCardBtnHighlight:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(197, 160, 89, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.gridCardBtnHighlight .gridCardTitle {
+  color: #ffffff !important;
+}
+
+.gridCardBtnHighlight .gridCardDesc {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
 .gridCardIcon {
   width: 44px;
   height: 44px;

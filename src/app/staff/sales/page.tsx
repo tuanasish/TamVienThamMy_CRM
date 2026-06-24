@@ -143,6 +143,8 @@ export default async function SalesPage() {
       itemId: item.itemId,
       price: Number(item.price),
       quantity: item.quantity,
+      discount: Number(item.discount),
+      staffId: item.staffId,
     })),
     schedules: inv.schedules.map((sch) => ({
       amount: Number(sch.amount),

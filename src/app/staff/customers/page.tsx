@@ -52,6 +52,25 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Query all pending installment schedules to aggregate outstanding debt in 1 single query
+  const pendingSchedules = await db.installmentSchedule.findMany({
+    where: { status: "pending" },
+    select: {
+      amount: true,
+      invoice: {
+        select: { customerId: true }
+      }
+    }
+  });
+
+  // Map customerId to total debt
+  const debtMap = new Map<string, number>();
+  for (const s of pendingSchedules) {
+    const custId = s.invoice.customerId;
+    const amount = Number(s.amount);
+    debtMap.set(custId, (debtMap.get(custId) || 0) + amount);
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -88,29 +107,36 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 <th className={styles.th}>Số điện thoại</th>
                 <th className={styles.th}>Hạng thành viên</th>
                 <th className={styles.th}>Tổng tích lũy</th>
+                <th className={styles.th}>Công nợ hiện tại</th>
                 <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
-                <tr key={c.id} className={styles.tr}>
-                  <td className={styles.td} style={{ fontWeight: 600 }}>{c.fullName}</td>
-                  <td className={styles.td}>{c.phone}</td>
-                  <td className={styles.td}>
-                    <span className={`${styles.badge} ${getTierClass(c.tier)}`}>
-                      {c.tier}
-                    </span>
-                  </td>
-                  <td className={styles.td} style={{ fontWeight: 700 }}>
-                    {formatVND(c.totalSpent)}
-                  </td>
-                  <td className={styles.td} style={{ textAlign: "right" }}>
-                    <Link href={`/staff/customers/${c.id}`} className={styles.actionLink}>
-                      Xem chi tiết
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {customers.map((c) => {
+                const debt = debtMap.get(c.id) || 0;
+                return (
+                  <tr key={c.id} className={styles.tr}>
+                    <td className={styles.td} style={{ fontWeight: 600 }}>{c.fullName}</td>
+                    <td className={styles.td}>{c.phone}</td>
+                    <td className={styles.td}>
+                      <span className={`${styles.badge} ${getTierClass(c.tier)}`}>
+                        {c.tier}
+                      </span>
+                    </td>
+                    <td className={styles.td} style={{ fontWeight: 700 }}>
+                      {formatVND(c.totalSpent)}
+                    </td>
+                    <td className={styles.td} style={{ fontWeight: 700, color: debt > 0 ? "#dc3545" : "var(--text-secondary)" }}>
+                      {debt > 0 ? formatVND(debt) : "—"}
+                    </td>
+                    <td className={styles.td} style={{ textAlign: "right" }}>
+                      <Link href={`/staff/customers/${c.id}`} className={styles.actionLink}>
+                        Xem chi tiết
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

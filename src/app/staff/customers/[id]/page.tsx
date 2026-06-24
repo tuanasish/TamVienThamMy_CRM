@@ -6,6 +6,7 @@ import RecordUsageModal from "@/components/RecordUsageModal";
 import EditCustomerModal from "@/components/EditCustomerModal";
 import DeleteCustomerButton from "@/components/DeleteCustomerButton";
 import { ArrowLeft, User, Phone, MapPin, Calendar, CreditCard, Activity, Receipt, FileText } from "lucide-react";
+import CustomerInvoicesList from "@/components/CustomerInvoicesList";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,13 +19,17 @@ const formatVND = (value: any) => {
 export default async function CustomerDetailPage({ params }: PageProps) {
   const { id } = await params;
 
-  // 1. Fetch customer details
+  // 1. Fetch customer details (including invoice schedules and items)
   const customer = await db.customer.findUnique({
     where: { id },
     include: {
       invoices: {
         orderBy: { createdAt: "desc" },
-        include: { staff: true },
+        include: { 
+          staff: true,
+          schedules: true,
+          items: true,
+        },
       },
       cards: {
         include: { template: true },
@@ -43,6 +48,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     redirect("/staff/customers");
   }
 
+  // Fetch unpaid schedules to compute total outstanding debt
+  const unpaidSchedules = await db.installmentSchedule.findMany({
+    where: {
+      invoice: { customerId: id },
+      status: "pending",
+    },
+    select: { amount: true },
+  });
+  const totalDebt = unpaidSchedules.reduce((sum, item) => sum + Number(item.amount), 0);
+
   // 2. Fetch services catalog for card usage selections
   const services = await db.service.findMany({
     orderBy: { name: "asc" },
@@ -52,6 +67,19 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     id: s.id,
     name: s.name,
     price: Number(s.price),
+    type: s.type,
+  }));
+
+  // Fetch card templates
+  const cardTemplates = await db.cardTemplate.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  const parsedCardTemplates = cardTemplates.map(c => ({
+    id: c.id,
+    name: c.name,
+    price: Number(c.price),
+    value: Number(c.value),
   }));
 
   // 3. Fetch all staff members
@@ -108,6 +136,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             <span className={`${styles.badge} ${customer.status === "active" ? styles.badgeActive : styles.badgeInactive}`} style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem", marginLeft: "0.5rem" }}>
               {customer.status === "active" ? "Đang hoạt động" : "Không còn nhu cầu"}
             </span>
+            {totalDebt > 0 && (
+              <span className={`${styles.badge} ${styles.badgeDebt}`} style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem", marginLeft: "0.5rem" }}>
+                Nợ: {formatVND(totalDebt)}
+              </span>
+            )}
           </div>
 
           <div className={styles.infoGrid}>
@@ -297,6 +330,19 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </div>
         </div>
       </section>
+
+      {/* Invoices and Debt Collection Section */}
+      <CustomerInvoicesList
+        invoices={customer.invoices}
+        customer={{
+          id: customer.id,
+          fullName: customer.fullName,
+          phone: customer.phone,
+        }}
+        services={parsedServices}
+        cardTemplates={parsedCardTemplates}
+        staff={parsedStaff}
+      />
     </div>
   );
 }

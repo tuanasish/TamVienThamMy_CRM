@@ -634,82 +634,91 @@ export default function CreateInvoiceForm({
           {selectedItems.length === 0 ? (
             <div className={styles.emptyText} style={{ padding: "1.5rem" }}>Chưa có mặt hàng nào được chọn.</div>
           ) : (
-            selectedItems.map((item) => (
-              <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow}>
-                <div className={styles.itemDetails}>
-                  <span className={styles.itemName}>{item.name}</span>
-                  <span className={styles.itemPrice}>
-                    Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong>
-                  </span>
-                </div>
+            selectedItems.map((item) => {
+              const itemDiscountVal = Number(parseMoneyInput(item.discount || "0")) || 0;
+              const itemSubtotal = Math.max((item.price * item.quantity) - itemDiscountVal, 0);
+              return (
+                <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow}>
+                  <div className={styles.itemDetails} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                    <span className={styles.itemName} style={{ fontWeight: 700, fontSize: "0.95rem" }}>{item.name}</span>
+                    <div style={{ display: "flex", gap: "1rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                      <span>Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong></span>
+                      <span>Số lượng: <strong>{item.quantity}</strong></span>
+                      {itemDiscountVal > 0 && <span style={{ color: "#dc3545" }}>Giảm: <strong>-{itemDiscountVal.toLocaleString("vi-VN")}đ</strong></span>}
+                    </div>
+                    <div style={{ fontSize: "0.88rem", marginTop: "0.15rem" }}>
+                      Thành tiền: <strong style={{ color: "var(--accent-gold)", fontWeight: 800 }}>{itemSubtotal.toLocaleString("vi-VN")}đ</strong>
+                    </div>
+                  </div>
 
-                <div className={styles.itemActions}>
-                  {item.itemType === "service" && (
-                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthSessions}`}>
-                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
+                  <div className={styles.itemActions}>
+                    {item.itemType === "service" && (
+                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthSessions}`}>
+                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
+                        <input
+                          type="number"
+                          className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
+                          value={item.totalSessions || 1}
+                          onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                          min="1"
+                          disabled={loading}
+                        />
+                      </div>
+                    )}
+
+                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthQty}`}>
+                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
                       <input
                         type="number"
                         className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
-                        value={item.totalSessions || 1}
-                        onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                        value={item.quantity}
+                        onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
                         min="1"
                         disabled={loading}
                       />
                     </div>
-                  )}
 
-                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthQty}`}>
-                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
-                    <input
-                      type="number"
-                      className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
-                      value={item.quantity}
-                      onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
-                      min="1"
-                      disabled={loading}
+                    {/* CUSTOM DISCOUNT PER ITEM */}
+                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
+                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
+                      <input
+                        type="text"
+                        className={`${styles.input} ${styles.actionInput}`}
+                        placeholder="0"
+                        value={item.discount}
+                        onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    {/* STAFF / SALE SELECTION PER ITEM */}
+                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
+                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
+                      <select
+                        className={`${styles.select} ${styles.actionInput}`}
+                        value={item.staffId}
+                        onChange={(e) => handleItemStaffChange(item.id, item.itemType, e.target.value)}
+                        disabled={loading}
+                        required
+                      >
+                        <option value="">-- Chọn --</option>
+                        {staff.map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <Trash2
+                      size={16}
+                      className={styles.removeItemBtn}
+                      onClick={() => handleRemoveItem(item.id, item.itemType)}
                     />
                   </div>
-
-                  {/* CUSTOM DISCOUNT PER ITEM */}
-                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
-                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
-                    <input
-                      type="text"
-                      className={`${styles.input} ${styles.actionInput}`}
-                      placeholder="0"
-                      value={item.discount}
-                      onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-
-                  {/* STAFF / SALE SELECTION PER ITEM */}
-                  <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
-                    <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
-                    <select
-                      className={`${styles.select} ${styles.actionInput}`}
-                      value={item.staffId}
-                      onChange={(e) => handleItemStaffChange(item.id, item.itemType, e.target.value)}
-                      disabled={loading}
-                      required
-                    >
-                      <option value="">-- Chọn --</option>
-                      {staff.map((st) => (
-                        <option key={st.id} value={st.id}>
-                          {st.fullName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Trash2
-                    size={16}
-                    className={styles.removeItemBtn}
-                    onClick={() => handleRemoveItem(item.id, item.itemType)}
-                  />
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

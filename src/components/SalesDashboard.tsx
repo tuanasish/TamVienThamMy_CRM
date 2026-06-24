@@ -83,6 +83,8 @@ interface InvoiceProp {
     itemId: string;
     price: any;
     quantity: number;
+    discount: any;
+    staffId?: string | null;
   }[];
 }
 
@@ -483,14 +485,22 @@ export default function SalesDashboard({
                       </td>
                       <td>
                         <div className={styles.salesItemList}>
-                          {inv.items.map((item) => (
-                            <div key={item.id} className={styles.salesItemTag}>
-                              • {getItemName(item.itemType, item.itemId)}{" "}
-                              <span style={{ color: "var(--text-secondary)" }}>
-                                (x{item.quantity})
-                              </span>
-                            </div>
-                          ))}
+                          {inv.items.map((item) => {
+                            const itemPrice = Number(item.price);
+                            const itemDisc = Number(item.discount || 0);
+                            const subtotal = Math.max((itemPrice * item.quantity) - itemDisc, 0);
+                            return (
+                              <div key={item.id} className={styles.salesItemTag}>
+                                • {getItemName(item.itemType, item.itemId)}{" "}
+                                <span style={{ color: "var(--text-secondary)" }}>
+                                  (x{item.quantity})
+                                </span>
+                                <span style={{ marginLeft: "0.25rem", fontWeight: 600, color: "var(--accent-gold)" }}>
+                                  - {subtotal.toLocaleString("vi-VN")}đ
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </td>
                       <td style={{ textAlign: "right" }}>

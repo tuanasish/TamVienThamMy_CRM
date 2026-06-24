@@ -131,6 +131,15 @@ export default async function CustomerDashboard() {
           <span className={styles.gridCardDesc}>Xem tổng quan tài khoản</span>
         </a>
 
+        {/* HIGHLIGHTED CENTER BOOKING CARD */}
+        <Link href="/customer/booking" className={`${styles.gridCardBtn} ${styles.gridCardBtnHighlight}`}>
+          <div className={styles.gridCardIcon} style={{ background: "rgba(255, 255, 255, 0.25)", color: "#ffffff" }}>
+            <Calendar size={20} />
+          </div>
+          <span className={styles.gridCardTitle}>Đặt lịch hẹn</span>
+          <span className={styles.gridCardDesc}>Đặt lịch trị liệu trực tuyến</span>
+        </Link>
+
         <a href="#promotions" className={styles.gridCardBtn}>
           <div className={styles.gridCardIcon} style={{ background: "rgba(40, 167, 69, 0.15)", color: "#28a745" }}>
             <Gift size={20} />
@@ -144,7 +153,7 @@ export default async function CustomerDashboard() {
             <Award size={20} />
           </div>
           <span className={styles.gridCardTitle}>Tích điểm: {points} điểm</span>
-          <span className={styles.gridCardDesc}>Cần thêm <strong>{pointsNeeded} điểm</strong> để nhận quà 2tr</span>
+          <span className={styles.gridCardDesc}>Cần thêm <strong>{pointsNeeded} điểm</strong> để nhận quà 10tr</span>
         </a>
 
         <a href="#services" className={styles.gridCardBtn}>
@@ -199,10 +208,6 @@ export default async function CustomerDashboard() {
               <span className={styles.pointsLabel}>Điểm tích lũy hiện tại</span>
               <h2 className={styles.pointsScore}>{points} <span style={{ fontSize: "1.2rem", fontWeight: "normal" }}>điểm</span></h2>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <span className={styles.pointsLabel}>Quy đổi chi tiêu</span>
-              <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", marginTop: "0.25rem" }}>1.000.000đ = 1 điểm</div>
-            </div>
           </div>
 
           <div className={styles.pointsProgressBlock}>
@@ -216,7 +221,7 @@ export default async function CustomerDashboard() {
             </div>
 
             <div className={styles.pointsAlertBox}>
-              🎁 Bạn đang có <strong>{points} điểm</strong> tích lũy. Chỉ cần tích lũy thêm <strong>{pointsNeeded} điểm</strong> nữa để đạt mốc {nextTargetPoints} điểm và nhận ngay phần quà trị giá <strong>2.000.000đ</strong> từ Spa!
+              🎁 Bạn đang có <strong>{points} điểm</strong> tích lũy. Chỉ cần tích lũy thêm <strong>{pointsNeeded} điểm</strong> nữa để đạt mốc {nextTargetPoints} điểm và nhận ngay <strong>Ưu đãi trị giá 10.000.000đ</strong> từ Spa!
             </div>
           </div>
         </div>

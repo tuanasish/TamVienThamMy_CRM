@@ -64,6 +64,35 @@ export default function EditInvoiceModal({
   const [internalNotes, setInternalNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
   const [isDownPaymentManuallyEdited, setIsDownPaymentManuallyEdited] = useState(false);
+  const [savedSchedules, setSavedSchedules] = useState<any[]>([]);
+
+  const handleToggleInstallment = async (scheduleId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "paid" ? "pending" : "paid";
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/invoices/installments/${scheduleId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Không thể cập nhật trạng thái kỳ trả góp");
+      }
+      
+      // Update local state immediately for visual feedback
+      setSavedSchedules(prev =>
+        prev.map(s => s.id === scheduleId ? { ...s, status: newStatus, paidAt: newStatus === "paid" ? new Date().toISOString() : null } : s)
+      );
+      
+      // Trigger parent success callback to refresh the page/dashboard data
+      onSuccess();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Derived calculation states
   const [totalAmount, setTotalAmount] = useState(0);
@@ -111,6 +140,7 @@ export default function EditInvoiceModal({
           staffId: itm.staffId || "",
         }))
       );
+      setSavedSchedules(data.schedules || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -297,50 +327,127 @@ export default function EditInvoiceModal({
                 Mặt hàng ({editItems.length})
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
-                {editItems.map((item) => (
-                  <div key={item.id} style={{
+                {editItems.map((item) => {
+                  const itemDiscountVal = Number(parseMoneyInput(item.discount || "0")) || 0;
+                  const itemSubtotal = Math.max((item.price * item.quantity) - itemDiscountVal, 0);
+                  return (
+                    <div key={item.id} style={{
+                      background: "var(--bg-primary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "8px",
+                      padding: "0.65rem 0.85rem",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                        <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{item.name}</span>
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block" }}>
+                            {item.price.toLocaleString("vi-VN")}đ × {item.quantity}
+                          </span>
+                          <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-gold)", display: "block", marginTop: "0.1rem" }}>
+                            Thành tiền: {itemSubtotal.toLocaleString("vi-VN")}đ
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "0 0 auto" }}>
+                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600 }}>Giảm:</label>
+                          <input
+                            type="text"
+                            className={`${styles.input} ${styles.actionInput}`}
+                            style={{ width: "100px" }}
+                            value={item.discount}
+                            onChange={(e) => handleItemDiscountChange(item.id, e.target.value)}
+                            disabled={loading}
+                          />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "1 1 auto", minWidth: "120px" }}>
+                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>NV:</label>
+                          <select
+                            className={`${styles.select} ${styles.actionInput}`}
+                            value={item.staffId}
+                            onChange={(e) => handleItemStaffChange(item.id, e.target.value)}
+                            disabled={loading}
+                            required
+                          >
+                            <option value="">-- Chọn --</option>
+                            {staff.map((st) => (
+                              <option key={st.id} value={st.id}>{st.fullName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Section 2.5: Saved Installments (Debt Collection) */}
+              {savedSchedules.length > 0 && (
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-rose)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    💸 Chi tiết công nợ & Thu nợ trực tiếp
+                  </div>
+                  <div style={{
                     background: "var(--bg-primary)",
                     border: "1px solid var(--border-color)",
                     borderRadius: "8px",
-                    padding: "0.65rem 0.85rem",
+                    padding: "0.75rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem"
                   }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{item.name}</span>
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                        {item.price.toLocaleString("vi-VN")}đ × {item.quantity}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "0 0 auto" }}>
-                        <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600 }}>Giảm:</label>
-                        <input
-                          type="text"
-                          className={`${styles.input} ${styles.actionInput}`}
-                          style={{ width: "100px" }}
-                          value={item.discount}
-                          onChange={(e) => handleItemDiscountChange(item.id, e.target.value)}
-                          disabled={loading}
-                        />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "1 1 auto", minWidth: "120px" }}>
-                        <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>NV:</label>
-                        <select
-                          className={`${styles.select} ${styles.actionInput}`}
-                          value={item.staffId}
-                          onChange={(e) => handleItemStaffChange(item.id, e.target.value)}
-                          disabled={loading}
-                          required
-                        >
-                          <option value="">-- Chọn --</option>
-                          {staff.map((st) => (
-                            <option key={st.id} value={st.id}>{st.fullName}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    {savedSchedules.map((s: any, idx: number) => {
+                      const isPaid = s.status === "paid";
+                      return (
+                        <div key={s.id} style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.5rem 0.75rem",
+                          background: isPaid ? "rgba(40, 167, 69, 0.04)" : "rgba(220, 53, 69, 0.03)",
+                          border: `1px solid ${isPaid ? "rgba(40, 167, 69, 0.15)" : "rgba(220, 53, 69, 0.15)"}`,
+                          borderRadius: "6px",
+                          transition: "all 0.2s ease"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <input
+                              type="checkbox"
+                              checked={isPaid}
+                              disabled={loading}
+                              onChange={() => handleToggleInstallment(s.id, s.status)}
+                              style={{
+                                width: "18px",
+                                height: "18px",
+                                cursor: "pointer",
+                                accentColor: "#28a745"
+                              }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: "0.88rem", color: isPaid ? "#28a745" : "#dc3545" }}>
+                                Kỳ {idx + 1}: {Number(s.amount).toLocaleString("vi-VN")}đ
+                              </div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                Hạn trả: {new Date(s.dueDate).toLocaleDateString("vi-VN")}
+                                {isPaid && s.paidAt && ` • Đã thu lúc ${new Date(s.paidAt).toLocaleDateString("vi-VN")}`}
+                              </div>
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            padding: "0.2rem 0.5rem",
+                            borderRadius: "4px",
+                            background: isPaid ? "rgba(40, 167, 69, 0.12)" : "rgba(220, 53, 69, 0.12)",
+                            color: isPaid ? "#28a745" : "#dc3545"
+                          }}>
+                            {isPaid ? "Đã thu nợ" : "Chưa thu"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
 
               {/* Section 3: Payment */}
               <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>
