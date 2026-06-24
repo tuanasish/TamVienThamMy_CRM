@@ -71,13 +71,19 @@ export async function POST(request: Request) {
       installmentMonths,
       downPayment = 0,
       bankFee = 0,
+      paidAmountCash = 0,
+      paidAmountTransfer = 0,
+      paidAmountHomeCredit = 0,
+      paidAmountMiraeAsset = 0,
+      paidAmountDebt = 0,
+      paidAmountOffset = 0,
       internalNotes,
       items, // array of items: { itemType, itemId, price, quantity, discount, staffId }
       appointmentId, // optional appointment link
     } = body;
 
     // Validate inputs
-    if (!customerId || !staffId || !paymentType || !items || !Array.isArray(items) || items.length === 0) {
+    if (!customerId || !staffId || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Vui lòng nhập đầy đủ các thông tin hóa đơn bắt buộc" }, { status: 400 });
     }
 
@@ -86,16 +92,40 @@ export async function POST(request: Request) {
     }
 
     const finalAmountNum = Number(finalAmount);
-    const downPaymentNum = Number(downPayment);
     const bankFeeNum = Number(bankFee);
+    const paidOffset = Number(paidAmountOffset || 0);
+
+    let paidCash = Number(paidAmountCash || 0);
+    let paidTransfer = Number(paidAmountTransfer || 0);
+    let paidHomeCredit = Number(paidAmountHomeCredit || 0);
+    let paidMiraeAsset = Number(paidAmountMiraeAsset || 0);
+    let paidDebt = Number(paidAmountDebt || 0);
+
+    const sumSplit = paidCash + paidTransfer + paidHomeCredit + paidMiraeAsset + paidDebt + paidOffset;
+    if (sumSplit === 0) {
+      if (paymentType === "cash") {
+        paidCash = finalAmountNum;
+      } else {
+        const downPaymentNum = Number(downPayment || 0);
+        paidCash = downPaymentNum;
+        const remaining = finalAmountNum - downPaymentNum;
+        if (installmentType === "home_credit") {
+          paidHomeCredit = remaining;
+        } else if (installmentType === "mirae_asset") {
+          paidMiraeAsset = remaining;
+        } else {
+          paidDebt = remaining;
+        }
+      }
+    }
+
+    const calculatedPaymentType = (paidDebt > 0 || paidHomeCredit > 0 || paidMiraeAsset > 0) ? "installment" : "cash";
+    const calculatedInstallmentType = paidDebt > 0 ? "counter" : (paidHomeCredit > 0 ? "home_credit" : (paidMiraeAsset > 0 ? "mirae_asset" : null));
 
     // Validate installment details
-    if (paymentType === "installment") {
+    if (paidDebt > 0) {
       if (!installmentMonths || ![1, 3, 6, 9, 12].includes(Number(installmentMonths))) {
         return NextResponse.json({ error: "Kỳ hạn trả nợ/trả góp phải là 1, 3, 6, 9 hoặc 12 tháng" }, { status: 400 });
-      }
-      if (downPaymentNum >= finalAmountNum) {
-        return NextResponse.json({ error: "Số tiền thanh toán phải nhỏ hơn tổng số tiền hóa đơn để ghi nhận công nợ" }, { status: 400 });
       }
     }
 
@@ -123,10 +153,16 @@ export async function POST(request: Request) {
           totalAmount: Number(totalAmount),
           discount: Number(discount),
           finalAmount: finalAmountNum,
-          paymentType,
-          installmentType: paymentType === "installment" ? (installmentType || "counter") : null,
-          installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
+          paymentType: calculatedPaymentType,
+          installmentType: calculatedInstallmentType,
+          installmentMonths: (paidDebt > 0 || paidHomeCredit > 0 || paidMiraeAsset > 0) ? Number(installmentMonths) : null,
           bankFee: bankFeeNum,
+          paidAmountCash: paidCash,
+          paidAmountTransfer: paidTransfer,
+          paidAmountHomeCredit: paidHomeCredit,
+          paidAmountMiraeAsset: paidMiraeAsset,
+          paidAmountDebt: paidDebt,
+          paidAmountOffset: paidOffset,
           internalNotes: internalNotes || null,
         },
       });
@@ -205,9 +241,9 @@ export async function POST(request: Request) {
       // 4. Generate installment schedules with createMany (1 query) + update customer + appointment — ALL PARALLEL
       const finalPromises: Promise<any>[] = [];
 
-      if (paymentType === "installment") {
-        const months = Number(installmentMonths);
-        const debtAmount = finalAmountNum - downPaymentNum;
+      if (paidDebt > 0) {
+        const months = Number(installmentMonths || 1);
+        const debtAmount = paidDebt;
         const baseMonthlyAmount = Math.floor(debtAmount / months);
         let sumCreated = 0;
 
@@ -242,7 +278,8 @@ export async function POST(request: Request) {
       }
 
       // Update customer total spend and tier
-      const updatedTotalSpent = Number(customer.totalSpent) + finalAmountNum;
+      const netNewSpent = Math.max(0, finalAmountNum - paidOffset);
+      const updatedTotalSpent = Number(customer.totalSpent) + netNewSpent;
       const newTier = calculateTier(updatedTotalSpent);
       finalPromises.push(
         tx.customer.update({

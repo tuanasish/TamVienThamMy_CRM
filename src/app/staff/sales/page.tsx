@@ -136,6 +136,12 @@ export default async function SalesPage() {
     finalAmount: Number(inv.finalAmount),
     paymentType: inv.paymentType,
     installmentType: inv.installmentType,
+    installmentMonths: inv.installmentMonths,
+    paidAmountCash: Number(inv.paidAmountCash),
+    paidAmountTransfer: Number(inv.paidAmountTransfer),
+    paidAmountHomeCredit: Number(inv.paidAmountHomeCredit),
+    paidAmountMiraeAsset: Number(inv.paidAmountMiraeAsset),
+    paidAmountDebt: Number(inv.paidAmountDebt),
     createdAt: inv.createdAt.toISOString(),
     items: inv.items.map((item) => ({
       id: item.id,

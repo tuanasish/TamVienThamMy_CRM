@@ -40,6 +40,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       installmentMonths,
       downPayment = 0,
       bankFee = 0,
+      paidAmountCash = 0,
+      paidAmountTransfer = 0,
+      paidAmountHomeCredit = 0,
+      paidAmountMiraeAsset = 0,
+      paidAmountDebt = 0,
+      paidAmountOffset,
       internalNotes,
       items, // array of updated items: { id, discount, staffId }
     } = body;
@@ -94,9 +100,41 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const rawTotal = invoice.items.reduce((sum, i) => sum + (Number(i.price) * i.quantity), 0);
       const invoiceDisc = Number(discount);
       const newFinalAmount = Math.max(rawTotal - itemsTotalDiscount - invoiceDisc, 0);
+
+      const paidOffset = paidAmountOffset !== undefined ? Number(paidAmountOffset) : Number(invoice.paidAmountOffset || 0);
+
+      let paidCash = Number(paidAmountCash || 0);
+      let paidTransfer = Number(paidAmountTransfer || 0);
+      let paidHomeCredit = Number(paidAmountHomeCredit || 0);
+      let paidMiraeAsset = Number(paidAmountMiraeAsset || 0);
+      let paidDebt = Number(paidAmountDebt || 0);
+
+      const sumSplit = paidCash + paidTransfer + paidHomeCredit + paidMiraeAsset + paidDebt + paidOffset;
+      if (sumSplit === 0) {
+        if (paymentType === "cash") {
+          paidCash = newFinalAmount;
+        } else {
+          const downPaymentNum = Number(downPayment || 0);
+          paidCash = downPaymentNum;
+          const remaining = newFinalAmount - downPaymentNum;
+          if (installmentType === "home_credit") {
+            paidHomeCredit = remaining;
+          } else if (installmentType === "mirae_asset") {
+            paidMiraeAsset = remaining;
+          } else {
+            paidDebt = remaining;
+          }
+        }
+      }
+
+      const calculatedPaymentType = (paidDebt > 0 || paidHomeCredit > 0 || paidMiraeAsset > 0) ? "installment" : "cash";
+      const calculatedInstallmentType = paidDebt > 0 ? "counter" : (paidHomeCredit > 0 ? "home_credit" : (paidMiraeAsset > 0 ? "mirae_asset" : null));
       
       // 3. Update invoice + customer + delete old schedules — ALL IN PARALLEL
-      const newTotalSpent = Math.max(0, Number(cust.totalSpent) - Number(invoice.finalAmount) + newFinalAmount);
+      const newTotalSpent = Math.max(
+        0,
+        Number(cust.totalSpent) - (Number(invoice.finalAmount) - Number(invoice.paidAmountOffset)) + (newFinalAmount - paidOffset)
+      );
       const newTier = calculateTier(newTotalSpent);
       
       const [updated] = await Promise.all([
@@ -106,10 +144,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             staff: { connect: { id: staffId } },
             discount: invoiceDisc,
             finalAmount: newFinalAmount,
-            paymentType,
-            installmentType: paymentType === "installment" ? (installmentType || "counter") : null,
-            installmentMonths: paymentType === "installment" ? Number(installmentMonths) : null,
-            bankFee: paymentType === "installment" ? Number(bankFee) : 0,
+            paymentType: calculatedPaymentType,
+            installmentType: calculatedInstallmentType,
+            installmentMonths: (paidDebt > 0 || paidHomeCredit > 0 || paidMiraeAsset > 0) ? Number(installmentMonths) : null,
+            bankFee: Number(bankFee),
+            paidAmountCash: paidCash,
+            paidAmountTransfer: paidTransfer,
+            paidAmountHomeCredit: paidHomeCredit,
+            paidAmountMiraeAsset: paidMiraeAsset,
+            paidAmountDebt: paidDebt,
+            paidAmountOffset: paidOffset,
             internalNotes: internalNotes || null,
           },
         }),
@@ -123,9 +167,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       ]);
       
       // 4. Recreate installment schedules with createMany (1 query instead of N)
-      if (paymentType === "installment") {
-        const months = Number(installmentMonths || 6);
-        const debtAmount = newFinalAmount - Number(downPayment);
+      if (paidDebt > 0) {
+        const months = Number(installmentMonths || 1);
+        const debtAmount = paidDebt;
         const baseMonthlyAmount = Math.floor(debtAmount / months);
         let sumCreated = 0;
         
@@ -185,7 +229,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       if (!customer) throw new Error("Khách hàng không tồn tại");
       
       // 3. Revert customer spent and tier
-      const newTotalSpent = Math.max(0, Number(customer.totalSpent) - Number(invoice.finalAmount));
+      const newTotalSpent = Math.max(0, Number(customer.totalSpent) - (Number(invoice.finalAmount) - Number(invoice.paidAmountOffset)));
       const newTier = calculateTier(newTotalSpent);
       
       await tx.customer.update({

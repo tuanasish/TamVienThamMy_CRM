@@ -76,6 +76,12 @@ interface InvoiceProp {
   finalAmount: any;
   paymentType: string;
   installmentType?: string | null;
+  installmentMonths?: number | null;
+  paidAmountCash?: any;
+  paidAmountTransfer?: any;
+  paidAmountHomeCredit?: any;
+  paidAmountMiraeAsset?: any;
+  paidAmountDebt?: any;
   createdAt: string;
   items: {
     id: string;
@@ -135,16 +141,17 @@ export default function SalesDashboard({
 
   // Calculate total revenue today
   const dailyTotal = invoices.reduce((sum, inv) => {
+    const offset = Number((inv as any).paidAmountOffset || 0);
     if (inv.paymentType === "installment") {
       if (inv.installmentType === "counter") {
         const totalDebt = (inv as any).schedules?.reduce((s: number, sch: any) => s + Number(sch.amount), 0) || 0;
-        const downPayment = Math.max(0, Number(inv.finalAmount) - totalDebt);
+        const downPayment = Math.max(0, Number(inv.finalAmount) - totalDebt - offset);
         return sum + downPayment;
       } else {
-        return sum + Number(inv.finalAmount); // Home Credit / Mirae Asset is fully realized immediately
+        return sum + Math.max(0, Number(inv.finalAmount) - offset); // Home Credit / Mirae Asset is fully realized immediately
       }
     }
-    return sum + Number(inv.finalAmount);
+    return sum + Math.max(0, Number(inv.finalAmount) - offset);
   }, 0);
 
   // Check in handler
@@ -512,15 +519,33 @@ export default function SalesDashboard({
                           {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
-                          {inv.paymentType === "installment"
-                            ? `Trả góp: ${
-                                inv.installmentType === "home_credit"
-                                  ? "Home Credit"
-                                  : inv.installmentType === "mirae_asset"
-                                  ? "Mirae Asset"
-                                  : "Tại quầy"
-                              }`
-                            : "Trả thẳng"}
+                          {(() => {
+                            const cash = Number(inv.paidAmountCash || 0);
+                            const transfer = Number(inv.paidAmountTransfer || 0);
+                            const hc = Number(inv.paidAmountHomeCredit || 0);
+                            const ma = Number(inv.paidAmountMiraeAsset || 0);
+                            const debt = Number(inv.paidAmountDebt || 0);
+
+                            const parts = [];
+                            if (cash > 0) parts.push(`Mặt: ${cash.toLocaleString("vi-VN")}đ`);
+                            if (transfer > 0) parts.push(`CK: ${transfer.toLocaleString("vi-VN")}đ`);
+                            if (hc > 0) parts.push(`Home: ${hc.toLocaleString("vi-VN")}đ`);
+                            if (ma > 0) parts.push(`Mirae: ${ma.toLocaleString("vi-VN")}đ`);
+                            if (debt > 0) parts.push(`Nợ: ${debt.toLocaleString("vi-VN")}đ`);
+
+                            if (parts.length === 0) {
+                              return inv.paymentType === "installment"
+                                ? `Trả góp: ${
+                                    inv.installmentType === "home_credit"
+                                      ? "Home Credit"
+                                      : inv.installmentType === "mirae_asset"
+                                      ? "Mirae Asset"
+                                      : "Tại quầy"
+                                  }`
+                                : "Tiền mặt";
+                            }
+                            return parts.join(" | ");
+                          })()}
                         </div>
                       </td>
                       <td style={{ textAlign: "right" }}>

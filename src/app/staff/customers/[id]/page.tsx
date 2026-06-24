@@ -3,6 +3,7 @@ import styles from "./page.module.css";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import RecordUsageModal from "@/components/RecordUsageModal";
+import ConvertPackageModal from "@/components/ConvertPackageModal";
 import EditCustomerModal from "@/components/EditCustomerModal";
 import DeleteCustomerButton from "@/components/DeleteCustomerButton";
 import { ArrowLeft, User, Phone, MapPin, Calendar, CreditCard, Activity, Receipt, FileText } from "lucide-react";
@@ -204,6 +205,21 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               service: { id: t.service.id, name: t.service.name },
             }))}
             services={parsedServices}
+            staffMembers={parsedStaff}
+          />
+          <ConvertPackageModal
+            customerId={customer.id}
+            customerName={customer.fullName}
+            cards={parsedCards}
+            treatments={customer.treatments.map(t => ({
+              id: t.id,
+              usedSessions: t.usedSessions,
+              totalSessions: t.totalSessions,
+              service: { id: t.service.id, name: t.service.name },
+              pricePaid: Number(t.pricePaid),
+            }))}
+            services={parsedServices}
+            cardTemplates={parsedCardTemplates}
             staffMembers={parsedStaff}
           />
           <EditCustomerModal

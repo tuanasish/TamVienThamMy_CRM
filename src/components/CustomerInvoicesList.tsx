@@ -67,13 +67,10 @@ export default function CustomerInvoicesList({
               {invoices.map((inv) => {
                 const finalAmt = Number(inv.finalAmount);
                 
-                // Calculate remaining debt from unpaid schedules (only for counter installment)
-                const isCounter = inv.paymentType !== "installment" || inv.installmentType === "counter";
-                const pendingSchedules = inv.paymentType === "installment" && inv.installmentType === "counter"
-                  ? (inv.schedules?.filter((s: any) => s.status === "pending") || [])
-                  : [];
+                // Calculate remaining debt from unpaid schedules
+                const pendingSchedules = inv.schedules?.filter((s: any) => s.status === "pending") || [];
                 const remainingDebt = pendingSchedules.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
-                const paidAmt = isCounter ? Math.max(finalAmt - remainingDebt, 0) : finalAmt;
+                const paidAmt = Math.max(finalAmt - remainingDebt, 0);
                 
                 const isPaidFull = remainingDebt === 0;
 
@@ -102,16 +99,28 @@ export default function CustomerInvoicesList({
                     <td className={styles.td} style={{ color: remainingDebt > 0 ? "#dc3545" : "var(--text-secondary)", fontWeight: 700 }}>
                       {remainingDebt > 0 ? formatVND(remainingDebt) : "—"}
                     </td>
-                    <td className={styles.td}>
-                      {inv.paymentType === "cash" ? (
-                        <span style={{ fontSize: "0.8rem", background: "rgba(40,167,69,0.1)", color: "#28a745", padding: "0.2rem 0.4rem", borderRadius: "4px", fontWeight: 600 }}>
-                          Trả thẳng
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: "0.8rem", background: remainingDebt > 0 ? "rgba(220,53,69,0.1)" : "rgba(40,167,69,0.1)", color: remainingDebt > 0 ? "#dc3545" : "#28a745", padding: "0.2rem 0.4rem", borderRadius: "4px", fontWeight: 600 }}>
-                          Trả góp ({inv.installmentMonths}T)
-                        </span>
-                      )}
+                    <td className={styles.td} style={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                      {(() => {
+                        const cash = Number(inv.paidAmountCash || 0);
+                        const transfer = Number(inv.paidAmountTransfer || 0);
+                        const hc = Number(inv.paidAmountHomeCredit || 0);
+                        const ma = Number(inv.paidAmountMiraeAsset || 0);
+                        const debt = Number(inv.paidAmountDebt || 0);
+                        const offset = Number(inv.paidAmountOffset || 0);
+
+                        const parts = [];
+                        if (cash > 0) parts.push("Tiền mặt");
+                        if (transfer > 0) parts.push("Chuyển khoản");
+                        if (hc > 0) parts.push("Home Credit");
+                        if (ma > 0) parts.push("Mirae Asset");
+                        if (debt > 0) parts.push(`Nợ (${inv.installmentMonths}T)`);
+                        if (offset > 0) parts.push(`Cấn trừ`);
+
+                        if (parts.length === 0) {
+                          return inv.paymentType === "installment" ? `Trả góp (${inv.installmentMonths}T)` : "Tiền mặt";
+                        }
+                        return parts.join(" + ");
+                      })()}
                     </td>
                     <td className={styles.td} style={{ textAlign: "right" }}>
                       <EditInvoiceModal

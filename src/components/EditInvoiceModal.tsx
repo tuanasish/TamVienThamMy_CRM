@@ -57,14 +57,39 @@ export default function EditInvoiceModal({
   // Invoice-level editable states
   const [staffId, setStaffId] = useState(""); // Cashier
   const [discount, setDiscount] = useState("0"); // Overall discount
-  const [paymentType, setPaymentType] = useState<"cash" | "installment">("cash");
-  const [installmentType, setInstallmentType] = useState("counter");
+  // Split payment fields
+  const [payMethods, setPayMethods] = useState<{
+    cash: boolean;
+    transfer: boolean;
+    homeCredit: boolean;
+    miraeAsset: boolean;
+    debt: boolean;
+  }>({
+    cash: true,
+    transfer: false,
+    homeCredit: false,
+    miraeAsset: false,
+    debt: false,
+  });
+
+  const [payAmounts, setPayAmounts] = useState<{
+    cash: string;
+    transfer: string;
+    homeCredit: string;
+    miraeAsset: string;
+    debt: string;
+  }>({
+    cash: "",
+    transfer: "",
+    homeCredit: "",
+    miraeAsset: "",
+    debt: "",
+  });
+
   const [installmentMonths, setInstallmentMonths] = useState("1");
-  const [downPayment, setDownPayment] = useState("0");
   const [bankFee, setBankFee] = useState("0");
   const [internalNotes, setInternalNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
-  const [isDownPaymentManuallyEdited, setIsDownPaymentManuallyEdited] = useState(false);
   const [savedSchedules, setSavedSchedules] = useState<any[]>([]);
 
   const handleToggleInstallment = async (scheduleId: string, currentStatus: string) => {
@@ -122,13 +147,74 @@ export default function EditInvoiceModal({
 
       setStaffId(data.staffId || "");
       setDiscount(formatMoneyInput(data.discount.toString()));
-      setPaymentType(data.paymentType as any);
-      setInstallmentType(data.installmentType || "counter");
+      const cash = Number(data.paidAmountCash || 0);
+      const transfer = Number(data.paidAmountTransfer || 0);
+      const hc = Number(data.paidAmountHomeCredit || 0);
+      const ma = Number(data.paidAmountMiraeAsset || 0);
+      const debt = Number(data.paidAmountDebt || 0);
+
+      const sumSplit = cash + transfer + hc + ma + debt;
+
+      let initMethods = {
+        cash: false,
+        transfer: false,
+        homeCredit: false,
+        miraeAsset: false,
+        debt: false,
+      };
+
+      let initAmounts = {
+        cash: "",
+        transfer: "",
+        homeCredit: "",
+        miraeAsset: "",
+        debt: "",
+      };
+
+      if (sumSplit > 0) {
+        initMethods.cash = cash > 0;
+        initMethods.transfer = transfer > 0;
+        initMethods.homeCredit = hc > 0;
+        initMethods.miraeAsset = ma > 0;
+        initMethods.debt = debt > 0;
+
+        initAmounts.cash = cash > 0 ? formatMoneyInput(cash.toString()) : "";
+        initAmounts.transfer = transfer > 0 ? formatMoneyInput(transfer.toString()) : "";
+        initAmounts.homeCredit = hc > 0 ? formatMoneyInput(hc.toString()) : "";
+        initAmounts.miraeAsset = ma > 0 ? formatMoneyInput(ma.toString()) : "";
+        initAmounts.debt = debt > 0 ? formatMoneyInput(debt.toString()) : "";
+      } else {
+        // Fallback for legacy invoice
+        const finalAmt = Number(data.finalAmount || 0);
+        if (data.paymentType === "installment") {
+          const unpaid = data.schedules?.reduce((sum: number, sch: any) => sum + Number(sch.amount), 0) || 0;
+          const down = Math.max(0, finalAmt - unpaid);
+          initMethods.cash = down > 0 || unpaid === 0;
+          initAmounts.cash = down > 0 ? formatMoneyInput(down.toString()) : "";
+
+          if (unpaid > 0) {
+            if (data.installmentType === "home_credit") {
+              initMethods.homeCredit = true;
+              initAmounts.homeCredit = formatMoneyInput(unpaid.toString());
+            } else if (data.installmentType === "mirae_asset") {
+              initMethods.miraeAsset = true;
+              initAmounts.miraeAsset = formatMoneyInput(unpaid.toString());
+            } else {
+              initMethods.debt = true;
+              initAmounts.debt = formatMoneyInput(unpaid.toString());
+            }
+          }
+        } else {
+          initMethods.cash = true;
+          initAmounts.cash = formatMoneyInput(finalAmt.toString());
+        }
+      }
+
+      setPayMethods(initMethods);
+      setPayAmounts(initAmounts);
       setInstallmentMonths(data.installmentMonths?.toString() || "1");
-      setDownPayment(formatMoneyInput((data.downPayment || 0).toString()));
       setBankFee(formatMoneyInput((data.bankFee || 0).toString()));
       setInternalNotes(data.internalNotes || "");
-      setIsDownPaymentManuallyEdited(data.paymentType === "installment");
       
       setEditItems(
         data.items.map((itm: any) => {
@@ -161,7 +247,74 @@ export default function EditInvoiceModal({
     }
   };
 
-  // Update calculations when discount, payments, or item inputs change
+  const recalculateSplit = (
+    methods: typeof payMethods,
+    amounts: typeof payAmounts,
+    final: number
+  ) => {
+    const keys: ("cash" | "transfer" | "homeCredit" | "miraeAsset" | "debt")[] = [
+      "cash",
+      "transfer",
+      "homeCredit",
+      "miraeAsset",
+      "debt",
+    ];
+
+    const activeKeys = keys.filter(k => methods[k]);
+    if (activeKeys.length === 0) {
+      return {
+        cash: formatMoneyInput(final.toString()),
+        transfer: "",
+        homeCredit: "",
+        miraeAsset: "",
+        debt: "",
+      };
+    }
+
+    const remainderKey = activeKeys[0];
+    const otherKeys = activeKeys.slice(1);
+
+    let otherSum = 0;
+    const updated = { ...amounts };
+
+    otherKeys.forEach((key) => {
+      const valNum = Number(parseMoneyInput(amounts[key] || "0")) || 0;
+      otherSum += valNum;
+    });
+
+    if (otherSum > final) {
+      updated[remainderKey] = "0";
+    } else {
+      const remainderVal = final - otherSum;
+      updated[remainderKey] = formatMoneyInput(remainderVal.toString());
+    }
+
+    // Clear values of inactive methods
+    keys.forEach((key) => {
+      if (!methods[key]) {
+        updated[key] = "";
+      }
+    });
+
+    return updated;
+  };
+
+  const handleTogglePayMethod = (key: "cash" | "transfer" | "homeCredit" | "miraeAsset" | "debt") => {
+    const nextMethods = { ...payMethods, [key]: !payMethods[key] };
+    const activeCount = Object.values(nextMethods).filter(Boolean).length;
+    if (activeCount === 0) return;
+
+    setPayMethods(nextMethods);
+    setPayAmounts((prev) => recalculateSplit(nextMethods, prev, finalAmount));
+  };
+
+  const handlePayAmountChange = (key: "cash" | "transfer" | "homeCredit" | "miraeAsset" | "debt", value: string) => {
+    const parsedVal = formatMoneyInput(value);
+    const nextAmounts = { ...payAmounts, [key]: parsedVal };
+    setPayAmounts(recalculateSplit(payMethods, nextAmounts, finalAmount));
+  };
+
+  // Update calculations when discount or item inputs change
   useEffect(() => {
     if (!isOpen) return;
     const total = editItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -172,31 +325,23 @@ export default function EditInvoiceModal({
     setTotalAmount(total);
     setFinalAmount(final);
 
-    // Auto-update downPayment if the user hasn't edited it manually
-    let currentDown = final;
-    if (isDownPaymentManuallyEdited) {
-      currentDown = Number(parseMoneyInput(downPayment)) || 0;
-      // Clamp down payment to final amount
-      if (currentDown > final) {
-        currentDown = final;
-        setDownPayment(formatMoneyInput(final.toString()));
-      }
-    } else {
-      setDownPayment(formatMoneyInput(final.toString()));
-    }
+    setPayAmounts((prevAmounts) => {
+      return recalculateSplit(payMethods, prevAmounts, final);
+    });
+  }, [editItems, discount, isOpen]);
 
-    const debt = Math.max(final - currentDown, 0);
-
-    if (debt > 0) {
-      setPaymentType("installment");
+  // Generate preview schedules for debt if debt > 0
+  useEffect(() => {
+    const debtVal = Number(parseMoneyInput(payAmounts.debt || "0")) || 0;
+    if (payMethods.debt && debtVal > 0) {
       const months = Number(installmentMonths || 1);
-      const baseAmt = Math.floor(debt / months);
+      const baseAmt = Math.floor(debtVal / months);
       const list: { month: number; amount: number }[] = [];
       let sumCreated = 0;
 
       for (let i = 1; i <= months; i++) {
         if (i === months) {
-          list.push({ month: i, amount: debt - sumCreated });
+          list.push({ month: i, amount: debtVal - sumCreated });
         } else {
           list.push({ month: i, amount: baseAmt });
           sumCreated += baseAmt;
@@ -204,10 +349,9 @@ export default function EditInvoiceModal({
       }
       setPreviewInstallments(list);
     } else {
-      setPaymentType("cash");
       setPreviewInstallments([]);
     }
-  }, [editItems, discount, installmentMonths, downPayment, isDownPaymentManuallyEdited, isOpen]);
+  }, [payAmounts.debt, payMethods.debt, installmentMonths]);
 
   // Handle changes for specific items
   const handleItemDiscountChange = (id: string, val: string) => {
@@ -237,6 +381,18 @@ export default function EditInvoiceModal({
       setLoading(false);
       return;
     }
+    const cashVal = Number(parseMoneyInput(payAmounts.cash || "0")) || 0;
+    const transferVal = Number(parseMoneyInput(payAmounts.transfer || "0")) || 0;
+    const hcVal = Number(parseMoneyInput(payAmounts.homeCredit || "0")) || 0;
+    const maVal = Number(parseMoneyInput(payAmounts.miraeAsset || "0")) || 0;
+    const debtVal = Number(parseMoneyInput(payAmounts.debt || "0")) || 0;
+
+    const totalSplit = cashVal + transferVal + hcVal + maVal + debtVal;
+    if (Math.abs(totalSplit - finalAmount) > 1) {
+      setError(`Tổng tiền thanh toán của các phương thức (${totalSplit.toLocaleString("vi-VN")}đ) phải bằng tổng hóa đơn (${finalAmount.toLocaleString("vi-VN")}đ)`);
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`/api/invoices/${invoice.id}`, {
@@ -245,11 +401,13 @@ export default function EditInvoiceModal({
         body: JSON.stringify({
           staffId,
           discount: Number(parseMoneyInput(discount)),
-          paymentType,
-          installmentType: paymentType === "installment" ? installmentType : undefined,
-          installmentMonths: paymentType === "installment" ? Number(installmentMonths) : undefined,
-          downPayment: paymentType === "installment" ? Number(parseMoneyInput(downPayment)) : 0,
-          bankFee: paymentType === "installment" ? Number(parseMoneyInput(bankFee)) : 0,
+          installmentMonths: payMethods.debt ? Number(installmentMonths) : undefined,
+          bankFee: Number(parseMoneyInput(bankFee)),
+          paidAmountCash: cashVal,
+          paidAmountTransfer: transferVal,
+          paidAmountHomeCredit: hcVal,
+          paidAmountMiraeAsset: maVal,
+          paidAmountDebt: debtVal,
           internalNotes,
           items: editItems.map((itm) => ({
             id: itm.id,
@@ -431,7 +589,7 @@ export default function EditInvoiceModal({
               </div>
 
               {/* Section 2.5: Saved Installments (Debt Collection) */}
-              {savedSchedules.length > 0 && installmentType === "counter" && (
+              {savedSchedules.length > 0 && (
                 <div style={{ marginBottom: "1.25rem" }}>
                   <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-rose)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
                     💸 Chi tiết công nợ & Thu nợ trực tiếp
@@ -503,95 +661,135 @@ export default function EditInvoiceModal({
                 Thanh toán
               </div>
               <div className={styles.formGrid}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Thanh toán ngay (đ) *</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder="0"
-                    value={downPayment}
-                    onChange={(e) => {
-                      setDownPayment(formatMoneyInput(e.target.value));
-                      setIsDownPaymentManuallyEdited(true);
-                    }}
-                    disabled={loading}
-                  />
+                <div className={`${styles.formGroup} ${styles.formFull}`}>
+                  <label className={styles.label} style={{ fontSize: "0.8rem", color: "var(--accent-gold)", fontWeight: 700 }}>Hình thức thanh toán (Cho phép chọn nhiều)</label>
                 </div>
+              </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Còn lại (Công nợ chuyển thu sau)</label>
-                  <div style={{
-                    padding: "0.55rem 0.75rem",
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "6px",
-                    fontWeight: 700,
-                    color: (finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 ? "var(--accent-rose)" : "var(--text-primary)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    height: "38px"
-                  }}>
-                    <span>{Math.max(finalAmount - (Number(parseMoneyInput(downPayment)) || 0), 0).toLocaleString("vi-VN")}đ</span>
-                    {(finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 && (
-                      <span style={{
-                        fontSize: "0.7rem",
-                        background: "rgba(220, 53, 69, 0.12)",
-                        color: "var(--accent-rose)",
-                        padding: "0.15rem 0.4rem",
-                        borderRadius: "4px",
-                        fontWeight: 600
-                      }}>Ghi nhận công nợ</span>
-                    )}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "1.25rem",
+                marginTop: "0.5rem",
+                marginBottom: "1.25rem",
+                width: "100%"
+              }}>
+                {(() => {
+                  const keys: ("cash" | "transfer" | "homeCredit" | "miraeAsset" | "debt")[] = [
+                    "cash",
+                    "transfer",
+                    "homeCredit",
+                    "miraeAsset",
+                    "debt"
+                  ];
+                  const activeKeys = keys.filter(k => payMethods[k]);
+                  const remainderKey = activeKeys[0];
+
+                  return keys.map((key) => {
+                    const isActive = payMethods[key];
+                    const isRemainder = key === remainderKey;
+                    const labelMap = {
+                      cash: "💵 Tiền mặt",
+                      transfer: "🏦 Chuyển khoản",
+                      homeCredit: "💳 Trả góp Home Credit",
+                      miraeAsset: "💳 Trả góp Mirae Asset",
+                      debt: "💸 Nợ tại quầy (Spa)"
+                    };
+
+                    return (
+                      <div key={key} style={{
+                        background: "var(--bg-secondary)",
+                        border: isActive ? "1px solid var(--accent-gold)" : "1px solid var(--border-color)",
+                        borderRadius: "8px",
+                        padding: "0.85rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                        transition: "all 0.2s ease"
+                      }}>
+                        <label style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          cursor: "pointer",
+                          color: isActive ? "var(--text-primary)" : "var(--text-secondary)"
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={() => handleTogglePayMethod(key)}
+                            style={{
+                              width: "16px",
+                              height: "16px",
+                              accentColor: "var(--accent-gold)",
+                              cursor: "pointer"
+                            }}
+                          />
+                          {labelMap[key]}
+                        </label>
+
+                        {isActive && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                            <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+                              {isRemainder ? "Số tiền (Tự động tính toán):" : "Nhập số tiền (đ):"}
+                            </span>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              placeholder="0"
+                              value={payAmounts[key]}
+                              onChange={(e) => handlePayAmountChange(key, e.target.value)}
+                              disabled={isRemainder || loading}
+                              style={{
+                                background: isRemainder ? "rgba(255,255,255,0.03)" : "var(--bg-primary)",
+                                fontWeight: 700,
+                                color: isRemainder ? "var(--accent-gold)" : "var(--text-primary)"
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {payMethods.debt && (
+                <div className={styles.formGrid} style={{ marginBottom: "1.25rem" }}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Kỳ hạn thanh toán nợ *</label>
+                    <select
+                      className={styles.select}
+                      value={installmentMonths}
+                      onChange={(e) => setInstallmentMonths(e.target.value)}
+                      disabled={loading}
+                      style={{ fontWeight: 600 }}
+                    >
+                      <option value="1">Trả hết 1 lần (sau 30 ngày)</option>
+                      <option value="3">Chia đều 3 tháng</option>
+                      <option value="6">Chia đều 6 tháng</option>
+                      <option value="9">Chia đều 9 tháng</option>
+                      <option value="12">Chia đều 12 tháng</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Phí phát sinh / Phí ngân hàng (đ)</label>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      placeholder="0"
+                      value={bankFee}
+                      onChange={(e) => setBankFee(formatMoneyInput(e.target.value))}
+                      disabled={loading}
+                    />
                   </div>
                 </div>
+              )}
 
-                {(finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 && (
-                  <>
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Hình thức ghi nợ / Trả góp</label>
-                      <select
-                        className={styles.select}
-                        value={installmentType}
-                        onChange={(e) => setInstallmentType(e.target.value)}
-                        disabled={loading}
-                      >
-                        <option value="counter">Ghi nợ tại Spa (Thu nợ sau)</option>
-                        <option value="home_credit">Home Credit</option>
-                        <option value="mirae_asset">Mirae Asset</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Kỳ hạn thanh toán nợ</label>
-                      <select
-                        className={styles.select}
-                        value={installmentMonths}
-                        onChange={(e) => setInstallmentMonths(e.target.value)}
-                        disabled={loading}
-                      >
-                        <option value="1">Trả hết 1 lần (sau 30 ngày)</option>
-                        <option value="3">Chia đều 3 tháng</option>
-                        <option value="6">Chia đều 6 tháng</option>
-                        <option value="9">Chia đều 9 tháng</option>
-                        <option value="12">Chia đều 12 tháng</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Phí phát sinh / Phí ngân hàng (đ)</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="0"
-                        value={bankFee}
-                        onChange={(e) => setBankFee(formatMoneyInput(e.target.value))}
-                        disabled={loading}
-                      />
-                    </div>
-                  </>
-                )}
-
+              <div className={styles.formGrid}>
                 <div className={`${styles.formGroup} ${styles.formFull}`}>
                   <label className={styles.label}>Ghi chú nội bộ</label>
                   <textarea className={styles.textarea} placeholder="Ghi chú..." value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} disabled={loading} style={{ minHeight: "50px" }} />

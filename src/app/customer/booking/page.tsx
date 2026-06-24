@@ -31,6 +31,13 @@ export default async function BookingPage() {
   // Verify customer in database
   const customer = await db.customer.findUnique({
     where: { id: sessionUser.id },
+    include: {
+      treatments: {
+        include: {
+          service: true,
+        },
+      },
+    },
   });
 
   if (!customer) {
@@ -45,11 +52,30 @@ export default async function BookingPage() {
     orderBy: { name: "asc" },
   });
 
-  const formattedServices = spaServices.map((s) => ({
-    id: s.id,
-    name: s.name,
-    price: Number(s.price),
-  }));
+  // Format purchased services (treatments with remaining sessions)
+  const purchasedServices = customer.treatments
+    .filter((t) => t.totalSessions > t.usedSessions)
+    .map((t) => ({
+      id: t.service.id,
+      name: t.service.name,
+      price: Number(t.pricePaid) / t.totalSessions,
+      remainingSessions: t.totalSessions - t.usedSessions,
+      isPurchased: true,
+    }));
+
+  const purchasedIds = new Set(purchasedServices.map((ps) => ps.id));
+
+  // Format other general spa services
+  const otherServices = spaServices
+    .filter((s) => !purchasedIds.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      price: Number(s.price),
+      isPurchased: false,
+    }));
+
+  const formattedServices = [...purchasedServices, ...otherServices];
 
   return (
     <div className={styles.container}>

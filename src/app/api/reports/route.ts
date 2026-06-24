@@ -130,6 +130,7 @@ export async function GET(request: Request) {
           installmentType: true,
           finalAmount: true,
           bankFee: true,
+          paidAmountOffset: true,
           staffId: true,
           staff: { select: { fullName: true } },
           schedules: {
@@ -209,19 +210,20 @@ export async function GET(request: Request) {
     invoices.forEach((inv) => {
       const finalAmt = Number(inv.finalAmount);
       const fee = Number(inv.bankFee);
+      const offset = Number(inv.paidAmountOffset || 0);
       totalBankFee += fee;
 
       let invRevenue = 0;
       if (inv.paymentType === "installment") {
         if (inv.installmentType === "counter") {
           const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
-          // Down payment = finalAmount - total installment debt
-          invRevenue = Math.max(0, finalAmt - totalDebt);
+          // Down payment = finalAmount - total installment debt - offset
+          invRevenue = Math.max(0, finalAmt - totalDebt - offset);
         } else {
-          invRevenue = finalAmt; // Home Credit / Mirae Asset pays full amount immediately
+          invRevenue = Math.max(0, finalAmt - offset); // Home Credit / Mirae Asset pays full amount immediately
         }
       } else {
-        invRevenue = finalAmt;
+        invRevenue = Math.max(0, finalAmt - offset);
       }
 
       totalRevenue += invRevenue;

@@ -17,6 +17,8 @@ interface ServiceProp {
   id: string;
   name: string;
   price: number;
+  remainingSessions?: number;
+  isPurchased?: boolean;
 }
 
 interface BookingFormProps {
@@ -112,11 +114,24 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
                 disabled={loading}
               >
                 <option value="">-- Chọn dịch vụ --</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.price.toLocaleString("vi-VN")}đ)
-                  </option>
-                ))}
+                {services.filter((s) => s.isPurchased).length > 0 && (
+                  <optgroup label="Liệu trình bạn đã sở hữu (Đã thanh toán)">
+                    {services.filter((s) => s.isPurchased).map((s) => (
+                      <option key={`purchased-${s.id}`} value={s.id}>
+                        {s.name} (Còn {s.remainingSessions} buổi)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {services.filter((s) => !s.isPurchased).length > 0 && (
+                  <optgroup label="Dịch vụ trị liệu khác (Tham khảo)">
+                    {services.filter((s) => !s.isPurchased).map((s) => (
+                      <option key={`other-${s.id}`} value={s.id}>
+                        {s.name} ({s.price.toLocaleString("vi-VN")}đ)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>

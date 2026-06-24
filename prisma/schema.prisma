@@ -107,6 +107,7 @@ model Invoice {
   paidAmountHomeCredit  Decimal               @default(0) @db.Decimal(12, 2)
   paidAmountMiraeAsset  Decimal               @default(0) @db.Decimal(12, 2)
   paidAmountDebt        Decimal               @default(0) @db.Decimal(12, 2)
+  paidAmountOffset      Decimal               @default(0) @db.Decimal(12, 2)
   internalNotes         String?
   createdAt         DateTime              @default(now())
   items             InvoiceItem[]
