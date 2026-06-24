@@ -6,6 +6,8 @@ import CustomerHeader from "@/components/CustomerHeader";
 import CustomerBottomNav from "@/components/CustomerBottomNav";
 import styles from "./layout.module.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Cổng tra cứu khách hàng - L'Amour Spa",
 };

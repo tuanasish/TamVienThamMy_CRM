@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getMaintenanceStatus, setMaintenanceStatus } from "@/lib/systemConfig";
 
+export const dynamic = "force-dynamic";
+
 // GET the current maintenance status
 export async function GET() {
   try {
