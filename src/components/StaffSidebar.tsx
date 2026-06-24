@@ -11,7 +11,9 @@ import {
   BarChart3, 
   LogOut,
   Sparkles,
-  Calendar
+  Calendar,
+  Wallet,
+  Tag
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -31,6 +33,8 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
     { name: "Lịch hẹn", path: "/staff/appointments", icon: <Calendar size={20} /> },
     { name: "Dịch vụ", path: "/staff/services", icon: <Sparkles size={20} /> },
     { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} /> },
+    { name: "Quản lý công nợ", path: "/staff/debts", icon: <Wallet size={20} /> },
+    { name: "Chương trình ưu đãi", path: "/staff/promotions", icon: <Tag size={20} /> },
     { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} /> },
   ];
 

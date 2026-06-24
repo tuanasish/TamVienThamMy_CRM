@@ -65,6 +65,11 @@ export default async function SalesPage() {
         },
       },
       items: true,
+      schedules: {
+        select: {
+          amount: true,
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -138,6 +143,9 @@ export default async function SalesPage() {
       itemId: item.itemId,
       price: Number(item.price),
       quantity: item.quantity,
+    })),
+    schedules: inv.schedules.map((sch) => ({
+      amount: Number(sch.amount),
     })),
   }));
 

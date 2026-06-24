@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const { usernameOrPhone, password, role } = await request.json();
 
-    if (!usernameOrPhone || !password || !role) {
+    if (!usernameOrPhone || !role || (role === "staff" && !password)) {
       return NextResponse.json(
         { error: "Vui lòng nhập đầy đủ thông tin đăng nhập" },
         { status: 400 }
@@ -65,14 +65,6 @@ export async function POST(request: Request) {
       if (!customer) {
         return NextResponse.json(
           { error: "Số điện thoại khách hàng chưa được đăng ký" },
-          { status: 401 }
-        );
-      }
-
-      const isPasswordMatch = await bcrypt.compare(password, customer.passwordHash);
-      if (!isPasswordMatch) {
-        return NextResponse.json(
-          { error: "Mật khẩu không chính xác" },
           { status: 401 }
         );
       }

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
-import { TrendingUp, Percent, DollarSign, Wallet, Users, BarChart3 } from "lucide-react";
+import { TrendingUp, Percent, DollarSign, Wallet, Users, BarChart3, Calendar } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -8,49 +8,98 @@ const formatVND = (value: any) => {
   return Number(value || 0).toLocaleString("vi-VN") + "đ";
 };
 
-export default async function ReportsPage() {
-  // 1. Fetch Invoices and calculate basic metrics
+interface PageProps {
+  searchParams: Promise<{
+    filter?: string;
+    startDate?: string;
+    endDate?: string;
+  }>;
+}
+
+export default async function ReportsPage({ searchParams }: PageProps) {
+  const resolvedParams = await searchParams;
+  const filter = resolvedParams.filter || "month";
+  const startDateParam = resolvedParams.startDate;
+  const endDateParam = resolvedParams.endDate;
+
+  let startDate = new Date();
+  let endDate = new Date();
+
+  // Parse time filter
+  if (filter === "day") {
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "week") {
+    const day = startDate.getDay();
+    const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+    startDate.setDate(diff);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "month") {
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "year") {
+    startDate.setMonth(0, 1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate.getFullYear(), 11, 31);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "custom" && startDateParam && endDateParam) {
+    startDate = new Date(startDateParam);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(endDateParam);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    // Default to current month
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
+  // 1. Fetch Invoices and calculate basic metrics in range
   const invoices = await db.invoice.findMany({
-    include: { staff: true },
+    where: {
+      createdAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      staff: true,
+      schedules: {
+        select: {
+          amount: true,
+        },
+      },
+    },
   });
 
-  let totalRevenue = 0;
-  let totalBankFee = 0;
-  const saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }> = {};
-
-  invoices.forEach((inv) => {
-    const finalAmt = Number(inv.finalAmount);
-    const fee = Number(inv.bankFee);
-    totalRevenue += finalAmt;
-    totalBankFee += fee;
-
-    if (inv.staffId) {
-      if (!saleDoanhSo[inv.staffId]) {
-        saleDoanhSo[inv.staffId] = {
-          staffName: inv.staff.fullName,
-          totalSales: 0,
-          target: 30000000, // Standard target 30M
-        };
-      }
-      saleDoanhSo[inv.staffId].totalSales += finalAmt;
-    }
+  // 2. Fetch Paid installments in range
+  const paidSchedules = await db.installmentSchedule.findMany({
+    where: {
+      status: "paid",
+      paidAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      invoice: {
+        include: { staff: true },
+      },
+    },
   });
 
-  // 2. Fetch Usage Logs for estimating Service Cost (Estimated operational cost: 30% of treatment usage value)
-  const usageLogs = await db.usageLog.findMany({
-    include: { service: true },
-  });
-  
-  let totalServiceCost = 0;
-  usageLogs.forEach((log) => {
-    const price = Number(log.service.price);
-    // Simulate operational / product cost (cosmetics, accessories) as 30%
-    totalServiceCost += price * 0.3;
-  });
-
-  const netProfit = Math.max(0, totalRevenue - totalBankFee - totalServiceCost);
-
-  // 3. Fetch unpaid schedules (debts)
+  // 3. Fetch unpaid schedules (current outstanding debt)
   const unpaidSchedules = await db.installmentSchedule.findMany({
     where: { status: "pending" },
     include: {
@@ -60,6 +109,75 @@ export default async function ReportsPage() {
     },
   });
 
+  // 4. Fetch Usage Logs in range
+  const usageLogs = await db.usageLog.findMany({
+    where: {
+      usedAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: { service: true },
+  });
+
+  let totalRevenue = 0;
+  let totalBankFee = 0;
+  const saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }> = {};
+
+  // Process core invoices in range
+  invoices.forEach((inv) => {
+    const finalAmt = Number(inv.finalAmount);
+    const fee = Number(inv.bankFee);
+    totalBankFee += fee;
+
+    let invRevenue = 0;
+    if (inv.paymentType === "installment") {
+      const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+      invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+    } else {
+      invRevenue = finalAmt;
+    }
+    totalRevenue += invRevenue;
+
+    if (inv.staffId && inv.staff) {
+      if (!saleDoanhSo[inv.staffId]) {
+        saleDoanhSo[inv.staffId] = {
+          staffName: inv.staff.fullName,
+          totalSales: 0,
+          target: 30000000,
+        };
+      }
+      saleDoanhSo[inv.staffId].totalSales += invRevenue;
+    }
+  });
+
+  // Add paid installments in range to revenue and staff sales
+  paidSchedules.forEach((sch) => {
+    const amt = Number(sch.amount);
+    totalRevenue += amt;
+
+    const staffId = sch.invoice.staffId;
+    if (staffId && sch.invoice.staff) {
+      if (!saleDoanhSo[staffId]) {
+        saleDoanhSo[staffId] = {
+          staffName: sch.invoice.staff.fullName,
+          totalSales: 0,
+          target: 30000000,
+        };
+      }
+      saleDoanhSo[staffId].totalSales += amt;
+    }
+  });
+
+  // Service operational costs (30%)
+  let totalServiceCost = 0;
+  usageLogs.forEach((log) => {
+    totalServiceCost += Number(log.service.price) * 0.3;
+  });
+
+  const netProfit = Math.max(0, totalRevenue - totalBankFee - totalServiceCost);
+
+  // Calculate current outstanding debt list
   let totalDebt = 0;
   const customerDebts: Record<string, { customerName: string; phone: string; debtAmount: number }> = {};
 
@@ -80,15 +198,13 @@ export default async function ReportsPage() {
 
   const debtsList = Object.values(customerDebts).sort((a, b) => b.debtAmount - a.debtAmount);
 
-  // 4. Sales Leaderboard
-  const allStaff = await db.staff.findMany({
-    include: { invoices: true },
-  });
-
+  // Sales Leaderboard with precise decimals and target target achievement
+  const allStaff = await db.staff.findMany();
   const saleTarget = 30000000;
   const salesLeaderboard = allStaff.map((st) => {
-    const totalSales = st.invoices.reduce((sum, inv) => sum + Number(inv.finalAmount), 0);
-    const progress = Math.min(Math.round((totalSales / saleTarget) * 100), 100);
+    const totalSales = saleDoanhSo[st.id]?.totalSales || 0;
+    // Format progress as exact decimal percentage (e.g., 2.68% or 120.50%)
+    const progress = Number(((totalSales / saleTarget) * 100).toFixed(2));
     return {
       id: st.id,
       name: st.fullName,
@@ -98,26 +214,19 @@ export default async function ReportsPage() {
     };
   }).sort((a, b) => b.totalSales - a.totalSales);
 
-  // Calculate percentages for SVG Donut/Stacked Chart
+  // Financial pie chart percentages
   const totalFinancialSegments = totalRevenue || 1;
   const profitPercentage = Math.round((netProfit / totalFinancialSegments) * 100);
   const bankFeePercentage = Math.round((totalBankFee / totalFinancialSegments) * 100);
   const costPercentage = Math.round((totalServiceCost / totalFinancialSegments) * 100);
 
-  // Define SVG Pie / Circle parameters (circumference: 314.16 for r=50)
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   
-  // Calculate stroke offsets for donut chart segments
-  // 1. Net Profit
   const profitStroke = (profitPercentage / 100) * circumference;
   const profitOffset = circumference;
-  
-  // 2. Service Cost
   const costStroke = (costPercentage / 100) * circumference;
   const costOffset = circumference - profitStroke;
-
-  // 3. Bank Fees
   const feeStroke = (bankFeePercentage / 100) * circumference;
   const feeOffset = circumference - profitStroke - costStroke;
 
@@ -128,6 +237,37 @@ export default async function ReportsPage() {
         <p className={styles.subtitle}>Phân tích chi phí, doanh thu spa và doanh số sale</p>
       </header>
 
+      {/* Date Filter Toolbar Component */}
+      <div className={styles.filterToolbar}>
+        <div className={styles.filterButtons}>
+          <a href={`?filter=day`} className={`${styles.filterBtn} ${filter === "day" ? styles.filterBtnActive : ""}`}>Ngày</a>
+          <a href={`?filter=week`} className={`${styles.filterBtn} ${filter === "week" ? styles.filterBtnActive : ""}`}>Tuần</a>
+          <a href={`?filter=month`} className={`${styles.filterBtn} ${filter === "month" ? styles.filterBtnActive : ""}`}>Tháng</a>
+          <a href={`?filter=year`} className={`${styles.filterBtn} ${filter === "year" ? styles.filterBtnActive : ""}`}>Năm</a>
+        </div>
+        <form method="GET" action="/staff/reports" className={styles.customDateForm}>
+          <input type="hidden" name="filter" value="custom" />
+          <div className={styles.dateInputGroup}>
+            <input
+              type="date"
+              name="startDate"
+              defaultValue={startDateParam || startDate.toLocaleDateString("sv-SE")}
+              className={styles.dateInput}
+              required
+            />
+            <span>đến</span>
+            <input
+              type="date"
+              name="endDate"
+              defaultValue={endDateParam || endDate.toLocaleDateString("sv-SE")}
+              className={styles.dateInput}
+              required
+            />
+          </div>
+          <button type="submit" className={styles.filterSubmitBtn}>Lọc</button>
+        </form>
+      </div>
+
       {/* Grid Overview Card */}
       <section className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -135,7 +275,7 @@ export default async function ReportsPage() {
             <DollarSign size={24} />
           </div>
           <div className={styles.statInfo}>
-            <span className={styles.statLabel}>Doanh thu gộp</span>
+            <span className={styles.statLabel}>Doanh thu gộp (Thực thu)</span>
             <span className={styles.statValue}>{formatVND(totalRevenue)}</span>
           </div>
         </div>
@@ -169,7 +309,7 @@ export default async function ReportsPage() {
             <Wallet size={24} />
           </div>
           <div className={styles.statInfo}>
-            <span className={styles.statLabel}>Tổng công nợ thu hồi</span>
+            <span className={styles.statLabel}>Tổng công nợ cần thu</span>
             <span className={styles.statValue}>{formatVND(totalDebt)}</span>
           </div>
         </div>
@@ -263,27 +403,46 @@ export default async function ReportsPage() {
             </div>
           </div>
 
-          {/* Sales Leaderboard */}
+          {/* Sales Leaderboard with Milestone Green Progress Bars */}
           <div className={styles.sectionCard}>
-            <h3 className={styles.sectionTitle}>Bảng xếp hạng KPI Sales (Chỉ tiêu 30M)</h3>
+            <h3 className={styles.sectionTitle}>Bảng xếp hạng KPI Sales (Chỉ tiêu {formatVND(saleTarget)})</h3>
             
             <div className={styles.saleList}>
               {salesLeaderboard.length === 0 ? (
                 <div className={styles.emptyText}>Chưa có dữ liệu doanh số nhân viên</div>
               ) : (
                 salesLeaderboard.map((sale) => (
-                  <div key={sale.id} className={styles.saleItem}>
-                    <div className={styles.saleHeader}>
+                  <div key={sale.id} className={styles.kpiContainer}>
+                    <div className={styles.kpiHeaderFlex}>
                       <span>{sale.name} ({sale.username})</span>
                       <strong>
-                        {formatVND(sale.totalSales)} / {formatVND(saleTarget)} ({sale.progress}%)
+                        {formatVND(sale.totalSales)} / {formatVND(saleTarget)} (
+                        <span style={{ color: "#28a745", fontWeight: "bold" }}>{sale.progress}%</span>)
                       </strong>
                     </div>
-                    <div className={styles.progressBarContainer}>
+
+                    <div className={styles.milestoneBarContainer}>
                       <div
-                        className={styles.progressBar}
-                        style={{ width: `${sale.progress}%` }}
+                        className={styles.milestoneBarFill}
+                        style={{ width: `${Math.min(sale.progress / 2, 100)}%` }}
                       />
+
+                      <div className={styles.milestoneMarker} style={{ left: "50%" }}>
+                        <div className={styles.milestoneLine} />
+                        <span className={styles.milestoneLabel}>100%</span>
+                      </div>
+                      <div className={styles.milestoneMarker} style={{ left: "60%" }}>
+                        <div className={styles.milestoneLine} />
+                        <span className={styles.milestoneLabel}>120%</span>
+                      </div>
+                      <div className={styles.milestoneMarker} style={{ left: "75%" }}>
+                        <div className={styles.milestoneLine} />
+                        <span className={styles.milestoneLabel}>150%</span>
+                      </div>
+                      <div className={styles.milestoneMarker} style={{ left: "100%" }}>
+                        <div className={styles.milestoneLine} />
+                        <span className={styles.milestoneLabel}>200%</span>
+                      </div>
                     </div>
                   </div>
                 ))

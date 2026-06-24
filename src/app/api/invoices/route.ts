@@ -91,11 +91,11 @@ export async function POST(request: Request) {
 
     // Validate installment details
     if (paymentType === "installment") {
-      if (!installmentMonths || ![6, 9, 12].includes(Number(installmentMonths))) {
-        return NextResponse.json({ error: "Kỳ hạn trả góp phải là 6, 9 hoặc 12 tháng" }, { status: 400 });
+      if (!installmentMonths || ![1, 3, 6, 9, 12].includes(Number(installmentMonths))) {
+        return NextResponse.json({ error: "Kỳ hạn trả nợ/trả góp phải là 1, 3, 6, 9 hoặc 12 tháng" }, { status: 400 });
       }
       if (downPaymentNum >= finalAmountNum) {
-        return NextResponse.json({ error: "Số tiền trả trước phải nhỏ hơn tổng số tiền hóa đơn" }, { status: 400 });
+        return NextResponse.json({ error: "Số tiền thanh toán phải nhỏ hơn tổng số tiền hóa đơn để ghi nhận công nợ" }, { status: 400 });
       }
     }
 

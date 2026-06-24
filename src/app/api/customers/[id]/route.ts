@@ -48,7 +48,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { fullName, phone, dob, address, gender, cccd, notes } = body;
+    const { fullName, phone, dob, address, gender, cccd, notes, status } = body;
 
     const currentCustomer = await db.customer.findUnique({
       where: { id },
@@ -88,6 +88,7 @@ export async function PUT(
         gender: gender !== undefined ? gender : undefined,
         cccd: cccd !== undefined ? cccd : undefined,
         notes: notes !== undefined ? notes : undefined,
+        status: status !== undefined ? status : undefined,
         tier: calculatedTier,
       },
     });

@@ -14,6 +14,7 @@ interface CustomerProp {
   cccd?: string | null;
   address?: string | null;
   notes?: string | null;
+  status?: string | null;
 }
 
 interface EditCustomerModalProps {
@@ -30,6 +31,7 @@ export default function EditCustomerModal({ customer }: EditCustomerModalProps) 
     customer.dob ? new Date(customer.dob).toISOString().split("T")[0] : ""
   );
   const [gender, setGender] = useState(customer.gender || "Nữ");
+  const [status, setStatus] = useState(customer.status || "active");
   const [cccd, setCccd] = useState(customer.cccd || "");
   const [address, setAddress] = useState(customer.address || "");
   const [notes, setNotes] = useState(customer.notes || "");
@@ -53,6 +55,7 @@ export default function EditCustomerModal({ customer }: EditCustomerModalProps) 
           phone,
           dob: dob || null,
           gender,
+          status,
           cccd: cccd || null,
           address: address || null,
           notes: notes || null,
@@ -144,6 +147,20 @@ export default function EditCustomerModal({ customer }: EditCustomerModalProps) 
                     <option value="Nữ">Nữ</option>
                     <option value="Nam">Nam</option>
                     <option value="Khác">Khác</option>
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Trạng thái khách hàng</label>
+                  <select
+                    className={styles.searchInput}
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={loading}
+                    style={{ appearance: "auto" }}
+                  >
+                    <option value="active">Đang hoạt động</option>
+                    <option value="lost">Không còn nhu cầu</option>
                   </select>
                 </div>
 

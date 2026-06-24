@@ -32,6 +32,7 @@ model Customer {
   notes        String?
   totalSpent   Decimal             @default(0) @db.Decimal(12, 2)
   tier         String              @default("Member")
+  status       String              @default("active") // 'active', 'lost' (không còn nhu cầu)
   createdAt    DateTime            @default(now())
   invoices     Invoice[]
   cards        CustomerCard[]
@@ -46,6 +47,7 @@ model Service {
   price      Decimal             @db.Decimal(12, 2)
   type       String              @default("service")
   notes      String?
+  tags       Json?
   createdAt  DateTime            @default(now())
   treatments CustomerTreatment[]
   usageLogs  UsageLog[]
@@ -159,4 +161,25 @@ model Appointment {
   status      String    @default("pending") // 'pending', 'checked_in', 'completed', 'cancelled'
   notes       String?
   createdAt   DateTime  @default(now())
+}
+
+model Promotion {
+  id           String                  @id @default(uuid())
+  title        String
+  description  String
+  image        String?
+  isActive     Boolean                 @default(true)
+  createdAt    DateTime                @default(now())
+  registrations PromotionRegistration[]
+}
+
+model PromotionRegistration {
+  id            String    @id @default(uuid())
+  promotionId   String
+  promotion     Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  customerPhone String
+  customerName  String
+  notes         String?
+  status        String    @default("pending") // 'pending', 'contacted', 'cancelled'
+  createdAt     DateTime  @default(now())
 }

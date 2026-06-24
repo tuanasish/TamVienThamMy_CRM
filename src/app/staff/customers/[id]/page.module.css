@@ -253,3 +253,29 @@
   text-align: center;
   padding: 2rem 0;
 }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.badgeGold {
+  background: rgba(197, 160, 89, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(197, 160, 89, 0.25);
+}
+
+.badgeActive {
+  background: rgba(40, 167, 69, 0.12) !important;
+  color: #28a745 !important;
+  border: 1px solid rgba(40, 167, 69, 0.25);
+}
+
+.badgeInactive {
+  background: rgba(220, 53, 69, 0.12) !important;
+  color: var(--accent-rose) !important;
+  border: 1px solid rgba(220, 53, 69, 0.25);
+}

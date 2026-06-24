@@ -155,6 +155,33 @@ async function main() {
   });
 
   console.log("💳 Created card templates.");
+
+  // 5. Create Sample Promotions
+  const promo1 = await prisma.promotion.create({
+    data: {
+      title: "Combo Sáng Mịn Toàn Diện - Giảm 50%",
+      description: "Liệu trình chăm sóc da mặt chuyên sâu kết hợp đắp mặt nạ tinh chất Collagen tươi giúp căng bóng, sáng mịn tức thì. Chỉ áp dụng cho khách hàng đăng ký online giữ ưu đãi hôm nay.",
+      isActive: true,
+    },
+  });
+
+  const promo2 = await prisma.promotion.create({
+    data: {
+      title: "Ưu đãi Vàng - Tặng Thẻ Nạp Trị Giá 5.000.000đ",
+      description: "Khi mua Thẻ nạp tài khoản 10M, nhận ngay số dư khả dụng lên tới 15.000.000đ để thoải mái sử dụng tất cả dịch vụ tại Spa. Đăng ký ngay để chuyên viên giữ suất khuyến mãi cho bạn.",
+      isActive: true,
+    },
+  });
+
+  const promo3 = await prisma.promotion.create({
+    data: {
+      title: "Liệu trình Triệt Lông Toàn Thân - Mua 1 Tặng 1",
+      description: "Đăng ký liệu trình triệt lông body vĩnh viễn bằng công nghệ Diode Laser hiện đại nhất hiện nay. Tặng thêm 1 liệu trình massage body đá nóng thư giãn trị giá 800.000đ.",
+      isActive: true,
+    },
+  });
+
+  console.log("🎁 Created promotions.");
   console.log("🎉 Seeding completed successfully!");
 }
 

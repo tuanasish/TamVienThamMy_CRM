@@ -224,3 +224,139 @@
   height: 12px;
   border-radius: 3px;
 }
+
+/* Filter Toolbar styling */
+.filterToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 0.5rem;
+}
+
+.filterButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filterBtn {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.filterBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.filterBtnActive {
+  color: white !important;
+  background: var(--grad-premium) !important;
+  border-color: transparent !important;
+}
+
+.customDateForm {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dateInputGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.dateInput {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.filterSubmitBtn {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  background: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.filterSubmitBtn:hover {
+  opacity: 0.9;
+}
+
+/* KPI green progress bar with milestones */
+.kpiContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.kpiHeaderFlex {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.milestoneBarContainer {
+  position: relative;
+  height: 12px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.milestoneBarFill {
+  height: 100%;
+  background: #28a745;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+.milestoneMarker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.milestoneLine {
+  width: 2px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 1;
+}
+
+.milestoneLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}

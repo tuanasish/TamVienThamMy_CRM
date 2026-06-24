@@ -82,21 +82,23 @@ function LoginForm() {
           />
         </div>
 
-        <div className={styles.inputGroup}>
-          <label htmlFor="password" className={styles.label}>
-            Mật khẩu
-          </label>
-          <input
-            id="password"
-            type="password"
-            className={styles.input}
-            placeholder="Nhập mật khẩu"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={loading}
-          />
-        </div>
+        {role === "staff" && (
+          <div className={styles.inputGroup}>
+            <label htmlFor="password" className={styles.label}>
+              Mật khẩu
+            </label>
+            <input
+              id="password"
+              type="password"
+              className={styles.input}
+              placeholder="Nhập mật khẩu"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+        )}
 
         <button type="submit" className={styles.submitBtn} disabled={loading}>
           <LogIn size={18} />

@@ -81,13 +81,14 @@ export default function CreateInvoiceForm({
   const [staffId, setStaffId] = useState(""); // Cashier staff
   const [discount, setDiscount] = useState("0"); // Invoice level overall discount
   const [paymentType, setPaymentType] = useState<"cash" | "installment">("cash");
-  const [installmentMonths, setInstallmentMonths] = useState("6");
+  const [installmentMonths, setInstallmentMonths] = useState("1");
   const [installmentType, setInstallmentType] = useState<string>("counter");
   const [downPayment, setDownPayment] = useState("0");
   const [bankFee, setBankFee] = useState("0");
   const [internalNotes, setInternalNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isDownPaymentManuallyEdited, setIsDownPaymentManuallyEdited] = useState(false);
 
   // Selector fields
   const [selectedItemType, setSelectedItemType] = useState<"service" | "product" | "card">("service");
@@ -156,12 +157,24 @@ export default function CreateInvoiceForm({
     setTotalAmount(total);
     setFinalAmount(final);
 
-    // Calculate installment preview
-    if (paymentType === "installment") {
+    // Auto-update downPayment if the user hasn't edited it manually
+    let currentDown = final;
+    if (isDownPaymentManuallyEdited) {
+      currentDown = Number(parseMoneyInput(downPayment)) || 0;
+      // Clamp down payment to final amount
+      if (currentDown > final) {
+        currentDown = final;
+        setDownPayment(formatMoneyInput(final.toString()));
+      }
+    } else {
+      setDownPayment(formatMoneyInput(final.toString()));
+    }
+
+    const debt = Math.max(final - currentDown, 0);
+    
+    if (debt > 0) {
+      setPaymentType("installment");
       const months = Number(installmentMonths);
-      const down = Number(parseMoneyInput(downPayment)) || 0;
-      const debt = Math.max(final - down, 0);
-      
       const baseAmt = Math.floor(debt / months);
       const list: { month: number; amount: number }[] = [];
       let sumCreated = 0;
@@ -176,9 +189,10 @@ export default function CreateInvoiceForm({
       }
       setPreviewInstallments(list);
     } else {
+      setPaymentType("cash");
       setPreviewInstallments([]);
     }
-  }, [selectedItems, discount, paymentType, installmentMonths, downPayment]);
+  }, [selectedItems, discount, installmentMonths, downPayment, isDownPaymentManuallyEdited]);
 
   const handleAddItem = () => {
     if (!selectedItemId) return;
@@ -716,62 +730,82 @@ export default function CreateInvoiceForm({
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Phương thức thanh toán</label>
-          <select
-            className={styles.select}
-            value={paymentType}
-            onChange={(e) => setPaymentType(e.target.value as any)}
+          <label className={styles.label}>Thanh toán ngay (đ) *</label>
+          <input
+            type="text"
+            className={styles.input}
+            placeholder="0"
+            value={downPayment}
+            onChange={(e) => {
+              setDownPayment(formatMoneyInput(e.target.value));
+              setIsDownPaymentManuallyEdited(true);
+            }}
             disabled={loading}
-          >
-            <option value="cash">Trả thẳng (Tiền mặt/Chuyển khoản)</option>
-            <option value="installment">Trả góp</option>
-          </select>
+          />
         </div>
 
-        {paymentType === "installment" && (
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Còn lại (Công nợ chuyển thu sau)</label>
+          <div style={{
+            padding: "0.55rem 0.75rem",
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "6px",
+            fontWeight: 700,
+            color: (finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 ? "var(--accent-rose)" : "var(--text-primary)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            height: "38px"
+          }}>
+            <span>{Math.max(finalAmount - (Number(parseMoneyInput(downPayment)) || 0), 0).toLocaleString("vi-VN")}đ</span>
+            {(finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 && (
+              <span style={{
+                fontSize: "0.7rem",
+                background: "rgba(220, 53, 69, 0.12)",
+                color: "var(--accent-rose)",
+                padding: "0.15rem 0.4rem",
+                borderRadius: "4px",
+                fontWeight: 600
+              }}>Ghi nhận công nợ</span>
+            )}
+          </div>
+        </div>
+
+        {(finalAmount - (Number(parseMoneyInput(downPayment)) || 0)) > 0 && (
           <>
             <div className={styles.formGroup}>
-              <label className={styles.label}>Loại trả góp (Đối tác / Hình thức)</label>
+              <label className={styles.label}>Hình thức ghi nợ / Trả góp</label>
               <select
                 className={styles.select}
                 value={installmentType}
                 onChange={(e) => setInstallmentType(e.target.value)}
                 disabled={loading}
               >
+                <option value="counter">Ghi nợ tại Spa (Thu nợ sau)</option>
                 <option value="home_credit">Home Credit</option>
                 <option value="mirae_asset">Mirae Asset</option>
-                <option value="counter">Trả góp tại quầy (Spa)</option>
               </select>
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label}>Kỳ hạn trả góp (tháng)</label>
+              <label className={styles.label}>Kỳ hạn thanh toán nợ</label>
               <select
                 className={styles.select}
                 value={installmentMonths}
                 onChange={(e) => setInstallmentMonths(e.target.value)}
                 disabled={loading}
               >
-                <option value="6">6 tháng</option>
-                <option value="9">9 tháng</option>
-                <option value="12">12 tháng</option>
+                <option value="1">Trả hết 1 lần (sau 30 ngày)</option>
+                <option value="3">Chia đều 3 tháng</option>
+                <option value="6">Chia đều 6 tháng</option>
+                <option value="9">Chia đều 9 tháng</option>
+                <option value="12">Chia đều 12 tháng</option>
               </select>
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label}>Số tiền trả trước (đ)</label>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="0"
-                value={downPayment}
-                onChange={(e) => setDownPayment(formatMoneyInput(e.target.value))}
-                disabled={loading}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Phí trả góp ngân hàng (đ)</label>
+              <label className={styles.label}>Phí phát sinh / Phí ngân hàng (đ)</label>
               <input
                 type="text"
                 className={styles.input}

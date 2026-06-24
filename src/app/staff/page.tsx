@@ -7,29 +7,92 @@ const formatVND = (value: any) => {
   return Number(value || 0).toLocaleString("vi-VN") + "đ";
 };
 
-export default async function StaffDashboard() {
-  // 1. Get today's start and end timestamps
-  const { start: todayStart, end: todayEnd } = getVietnamToday();
+interface PageProps {
+  searchParams: Promise<{
+    filter?: string;
+    startDate?: string;
+    endDate?: string;
+  }>;
+}
+
+export default async function StaffDashboard({ searchParams }: PageProps) {
+  const resolvedParams = await searchParams;
+  const filter = resolvedParams.filter || "day"; // default to daily overview
+  const startDateParam = resolvedParams.startDate;
+  const endDateParam = resolvedParams.endDate;
+
+  let startDate = new Date();
+  let endDate = new Date();
+
+  // Parse time filter
+  if (filter === "day") {
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "week") {
+    const day = startDate.getDay();
+    const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+    startDate.setDate(diff);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "month") {
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "year") {
+    startDate.setMonth(0, 1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(startDate.getFullYear(), 11, 31);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (filter === "custom" && startDateParam && endDateParam) {
+    startDate = new Date(startDateParam);
+    startDate.setHours(0, 0, 0, 0);
+    
+    endDate = new Date(endDateParam);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    // Default to today
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+  }
 
   // 2. Run ALL queries in parallel
   const [
     customerCount,
-    todayInvoices,
+    invoices,
+    paidSchedules,
     unpaidSchedules,
     allStaff,
   ] = await Promise.all([
-    // Customer count (lightweight)
+    // Customer count
     db.customer.count(),
 
-    // Today's invoices — only need finalAmount for sum
+    // Invoices in selected range
     db.invoice.findMany({
       where: {
-        createdAt: { gte: todayStart, lte: todayEnd },
+        createdAt: { gte: startDate, lte: endDate },
       },
-      select: { finalAmount: true },
+      include: {
+        schedules: {
+          select: { amount: true },
+        },
+      },
     }),
 
-    // Unpaid installments — only need amount + customer name/phone
+    // Paid installments in selected range
+    db.installmentSchedule.findMany({
+      where: {
+        status: "paid",
+        paidAt: { gte: startDate, lte: endDate },
+      },
+    }),
+
+    // All unpaid installments (current outstanding debt)
     db.installmentSchedule.findMany({
       where: { status: "pending" },
       select: {
@@ -45,20 +108,67 @@ export default async function StaffDashboard() {
       },
     }),
 
-    // Staff with invoice totals — only need fullName + finalAmount
-    db.staff.findMany({
-      select: {
-        id: true,
-        fullName: true,
-        username: true,
-        invoices: {
-          select: { finalAmount: true },
-        },
-      },
-    }),
+    // Staff list
+    db.staff.findMany(),
   ]);
 
-  const todayRevenue = todayInvoices.reduce((sum, inv) => sum + Number(inv.finalAmount), 0);
+  let todayRevenue = 0;
+  const saleDoanhSo: Record<string, { staffName: string; totalSales: number }> = {};
+
+  // Calculate revenue from invoices in this period
+  invoices.forEach((inv) => {
+    const finalAmt = Number(inv.finalAmount);
+    let invRevenue = 0;
+    if (inv.paymentType === "installment") {
+      const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+      invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+    } else {
+      invRevenue = finalAmt;
+    }
+    todayRevenue += invRevenue;
+
+    if (inv.staffId) {
+      if (!saleDoanhSo[inv.staffId]) {
+        const staffName = allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0 };
+      }
+      saleDoanhSo[inv.staffId].totalSales += invRevenue;
+    }
+  });
+
+  // Add revenue from paid installments in this period
+  paidSchedules.forEach((sch) => {
+    const amt = Number(sch.amount);
+    todayRevenue += amt;
+
+    // Find the invoice cashier to credit their sales target
+    // In our model, schedules don't store invoice details directly unless queried, so let's fetch invoice details or query them
+  });
+
+  // Re-fetch paid schedules with invoice cashier details to attribute sales properly
+  const paidSchedulesWithStaff = await db.installmentSchedule.findMany({
+    where: {
+      status: "paid",
+      paidAt: { gte: startDate, lte: endDate },
+    },
+    include: {
+      invoice: {
+        select: { staffId: true },
+      },
+    },
+  });
+
+  paidSchedulesWithStaff.forEach((sch) => {
+    const amt = Number(sch.amount);
+    const staffId = sch.invoice.staffId;
+    if (staffId) {
+      if (!saleDoanhSo[staffId]) {
+        const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
+        saleDoanhSo[staffId] = { staffName, totalSales: 0 };
+      }
+      saleDoanhSo[staffId].totalSales += amt;
+    }
+  });
 
   const totalDebt = unpaidSchedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
 
@@ -78,11 +188,11 @@ export default async function StaffDashboard() {
   });
   const debtsList = Object.values(customerDebts).sort((a, b) => b.amount - a.amount).slice(0, 5);
 
-  // 3. Sales leaderboard
+  // 3. Sales leaderboard with precise decimal percentages
   const saleTarget = 30000000; // 30M default target
   const saleLeaderboard = allStaff.map((st) => {
-    const totalSales = st.invoices.reduce((sum, inv) => sum + Number(inv.finalAmount), 0);
-    const progress = Math.min(Math.round((totalSales / saleTarget) * 100), 100);
+    const totalSales = saleDoanhSo[st.id]?.totalSales || 0;
+    const progress = Number(((totalSales / saleTarget) * 100).toFixed(2));
     return {
       id: st.id,
       name: st.fullName,
@@ -92,16 +202,122 @@ export default async function StaffDashboard() {
     };
   }).sort((a, b) => b.totalSales - a.totalSales);
 
-  const formattedDate = formatVietnamDate(new Date());
+  const formattedDate = `Từ ${startDate.toLocaleDateString("vi-VN")} đến ${endDate.toLocaleDateString("vi-VN")}`;
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Tổng quan hoạt động</h1>
-          <div className={styles.date}>{formattedDate}</div>
+          <div className={styles.date} style={{ marginTop: "0.25rem", fontWeight: "600", color: "var(--accent-gold)" }}>{formattedDate}</div>
         </div>
       </header>
+
+      {/* Date Filter Toolbar */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "1rem",
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        padding: "1rem 1.5rem",
+        boxShadow: "var(--shadow-sm)",
+        marginBottom: "0.5rem"
+      }}>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <a href={`?filter=day`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: filter === "day" ? "white" : "var(--text-secondary)",
+            background: filter === "day" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: filter === "day" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Hôm nay</a>
+          <a href={`?filter=week`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: filter === "week" ? "white" : "var(--text-secondary)",
+            background: filter === "week" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: filter === "week" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Tuần</a>
+          <a href={`?filter=month`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: filter === "month" ? "white" : "var(--text-secondary)",
+            background: filter === "month" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: filter === "month" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Tháng</a>
+          <a href={`?filter=year`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: filter === "year" ? "white" : "var(--text-secondary)",
+            background: filter === "year" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: filter === "year" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Năm</a>
+        </div>
+        <form method="GET" action="/staff" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <input type="hidden" name="filter" value="custom" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+            <input
+              type="date"
+              name="startDate"
+              defaultValue={startDateParam || startDate.toLocaleDateString("sv-SE")}
+              style={{
+                padding: "0.35rem 0.75rem",
+                fontSize: "0.8rem",
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)"
+              }}
+              required
+            />
+            <span>đến</span>
+            <input
+              type="date"
+              name="endDate"
+              defaultValue={endDateParam || endDate.toLocaleDateString("sv-SE")}
+              style={{
+                padding: "0.35rem 0.75rem",
+                fontSize: "0.8rem",
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)"
+              }}
+              required
+            />
+          </div>
+          <button type="submit" style={{
+            padding: "0.35rem 1rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: "white",
+            background: "var(--text-primary)",
+            border: "none",
+            borderRadius: "var(--radius-sm)",
+            cursor: "pointer"
+          }}>Lọc</button>
+        </form>
+      </div>
 
       {/* Grid statistics */}
       <section className={styles.statsGrid}>
@@ -110,7 +326,7 @@ export default async function StaffDashboard() {
             <DollarSign size={24} />
           </div>
           <div className={styles.statInfo}>
-            <span className={styles.statLabel}>Doanh thu hôm nay</span>
+            <span className={styles.statLabel}>Doanh thu trong kỳ (Thực thu)</span>
             <span className={styles.statValue}>{formatVND(todayRevenue)}</span>
           </div>
         </div>
@@ -120,7 +336,7 @@ export default async function StaffDashboard() {
             <Wallet size={24} />
           </div>
           <div className={styles.statInfo}>
-            <span className={styles.statLabel}>Tổng tiền nợ (Công nợ)</span>
+            <span className={styles.statLabel}>Tổng tiền nợ (Công nợ hiện tại)</span>
             <span className={styles.statValue} style={{ color: "var(--accent-rose)" }}>
               {formatVND(totalDebt)}
             </span>
@@ -142,7 +358,7 @@ export default async function StaffDashboard() {
       <div className={styles.contentGrid}>
         {/* Left Side: Sale Leaderboard */}
         <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>Chỉ tiêu doanh số Sale (Target 30M)</h3>
+          <h3 className={styles.sectionTitle}>Chỉ tiêu doanh số Sale (Target {formatVND(saleTarget)})</h3>
           
           <div className={styles.saleList}>
             {saleLeaderboard.length === 0 ? (
@@ -152,14 +368,20 @@ export default async function StaffDashboard() {
                 <div key={sale.id} className={styles.saleItem}>
                   <div className={styles.saleHeader}>
                     <span>{sale.name} ({sale.username})</span>
-                    <span>
-                      {formatVND(sale.totalSales)} / {formatVND(saleTarget)} ({sale.progress}%)
-                    </span>
+                    <strong>
+                      {formatVND(sale.totalSales)} / {formatVND(saleTarget)} (
+                      <span style={{ color: "#28a745", fontWeight: "bold" }}>{sale.progress}%</span>)
+                    </strong>
                   </div>
-                  <div className={styles.progressBarContainer}>
+                  <div className={styles.progressBarContainer} style={{ height: "10px", background: "var(--bg-primary)", borderRadius: "5px", overflow: "hidden" }}>
                     <div 
                       className={styles.progressBar} 
-                      style={{ width: `${sale.progress}%` }}
+                      style={{
+                        width: `${Math.min(sale.progress, 100)}%`,
+                        height: "100%",
+                        background: "#28a745", // green progress bar
+                        borderRadius: "5px"
+                      }}
                     />
                   </div>
                 </div>

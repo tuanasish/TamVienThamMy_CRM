@@ -105,6 +105,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             <span className={`${styles.badge} ${styles.badgeGold}`} style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem" }}>
               {customer.tier}
             </span>
+            <span className={`${styles.badge} ${customer.status === "active" ? styles.badgeActive : styles.badgeInactive}`} style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem", marginLeft: "0.5rem" }}>
+              {customer.status === "active" ? "Đang hoạt động" : "Không còn nhu cầu"}
+            </span>
           </div>
 
           <div className={styles.infoGrid}>
@@ -177,6 +180,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               cccd: customer.cccd,
               address: customer.address,
               notes: customer.notes,
+              status: customer.status,
             }}
           />
           <DeleteCustomerButton
