@@ -110,7 +110,7 @@ export default async function CustomerDashboard() {
         <div className={styles.welcomeLeft}>
           <h1 className={styles.greeting}>{greeting}, {welcomeName}!</h1>
           <span className={styles.spendingInfo}>
-            Tổng chi tiêu tích lũy: <strong>{formatVND(totalSpent)}</strong>
+            Tổng điểm tích lũy: <strong>{points} điểm</strong>
           </span>
         </div>
         <div className={styles.welcomeRight}>
@@ -119,58 +119,6 @@ export default async function CustomerDashboard() {
             ✨ {currentTier}
           </div>
         </div>
-      </section>
-
-      {/* ADMIN-STYLE CARD GRID QUICK BUTTONS */}
-      <section className={styles.dashboardGrid}>
-        <a href="#" className={styles.gridCardBtn}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(197, 160, 89, 0.15)", color: "var(--accent-gold)" }}>
-            <Home size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Trang chủ</span>
-          <span className={styles.gridCardDesc}>Xem tổng quan tài khoản</span>
-        </a>
-
-        {/* HIGHLIGHTED CENTER BOOKING CARD */}
-        <Link href="/customer/booking" className={`${styles.gridCardBtn} ${styles.gridCardBtnHighlight}`}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(255, 255, 255, 0.25)", color: "#ffffff" }}>
-            <Calendar size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Đặt lịch hẹn</span>
-          <span className={styles.gridCardDesc}>Đặt lịch trị liệu trực tuyến</span>
-        </Link>
-
-        <a href="#promotions" className={styles.gridCardBtn}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(40, 167, 69, 0.15)", color: "#28a745" }}>
-            <Gift size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Ưu đãi của bạn</span>
-          <span className={styles.gridCardDesc}>Xem khuyến mãi riêng</span>
-        </a>
-
-        <a href="#points" className={styles.gridCardBtn}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(23, 162, 184, 0.15)", color: "#17a2b8" }}>
-            <Award size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Tích điểm: {points} điểm</span>
-          <span className={styles.gridCardDesc}>Cần thêm <strong>{pointsNeeded} điểm</strong> để nhận quà 10tr</span>
-        </a>
-
-        <a href="#services" className={styles.gridCardBtn}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(102, 16, 242, 0.15)", color: "#6610f2" }}>
-            <Wallet size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Quản lý dịch vụ</span>
-          <span className={styles.gridCardDesc}>Xem thẻ nạp &amp; liệu trình</span>
-        </a>
-
-        <a href="#history" className={styles.gridCardBtn}>
-          <div className={styles.gridCardIcon} style={{ background: "rgba(220, 53, 69, 0.15)", color: "var(--accent-rose)" }}>
-            <Activity size={20} />
-          </div>
-          <span className={styles.gridCardTitle}>Lịch sử trị liệu</span>
-          <span className={styles.gridCardDesc}>Nhật ký buổi làm việc</span>
-        </a>
       </section>
 
       {/* Booking Quick Link Banner */}
@@ -228,80 +176,136 @@ export default async function CustomerDashboard() {
       </section>
 
       {/* ACCOUNTS & LIỆU TRÌNH SECTION (Quản lý dịch vụ) */}
-      <div id="services" className={styles.grid2}>
+      <div id="services" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         
-        {/* Left Card: Account Balance Cards */}
-        <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>
-            <Wallet size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
-            Thẻ tài khoản của bạn
-          </h3>
+        {/* Hàng 1: Dịch vụ của bạn (Gói/Thẻ và Dịch vụ/Sản phẩm) */}
+        <div className={styles.grid2}>
+          {/* Left Card: Account Balance Cards */}
+          <div className={styles.sectionCard}>
+            <h3 className={styles.sectionTitle}>
+              <Wallet size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
+              Gói / Thẻ tài khoản của bạn
+            </h3>
 
-          <div className={styles.cardList}>
-            {customer.cards.length === 0 ? (
-              <div className={styles.emptyText}>Bạn chưa sở hữu thẻ nạp tài khoản nào.</div>
-            ) : (
-              customer.cards.map((card) => {
-                const balance = Number(card.currentBalance);
-                const originalPrice = Number(card.originalPrice);
-                const originalValue = Number(card.originalValue);
-                
-                const ratio = originalValue > 0 ? originalPrice / originalValue : 0;
-                const actualCash = balance * ratio;
-                const promoCash = balance - actualCash;
-                const formattedDate = new Date(card.createdAt).toLocaleDateString("vi-VN");
+            <div className={styles.cardList}>
+              {customer.cards.length === 0 ? (
+                <div className={styles.emptyText}>Bạn chưa sở hữu thẻ nạp tài khoản nào.</div>
+              ) : (
+                customer.cards.map((card) => {
+                  const balance = Number(card.currentBalance);
+                  const originalPrice = Number(card.originalPrice);
+                  const originalValue = Number(card.originalValue);
+                  
+                  const ratio = originalValue > 0 ? originalPrice / originalValue : 0;
+                  const actualCash = balance * ratio;
+                  const promoCash = balance - actualCash;
+                  const formattedDate = new Date(card.createdAt).toLocaleDateString("vi-VN");
 
-                return (
-                  <div key={card.id} className={styles.cardItem}>
-                    <div className={styles.cardHeader}>
-                      <span className={styles.cardName}>{card.template.name}</span>
-                      <span className={styles.cardDate}>Kích hoạt: {formattedDate}</span>
+                  return (
+                    <div key={card.id} className={styles.cardItem}>
+                      <div className={styles.cardHeader}>
+                        <span className={styles.cardName}>{card.template.name}</span>
+                        <span className={styles.cardDate}>Kích hoạt: {formattedDate}</span>
+                      </div>
+
+                      <div className={styles.balanceBlock}>
+                        <span className={styles.balanceLabel}>Số dư khả dụng</span>
+                        <span className={styles.balanceValue}>{formatVND(balance)}</span>
+                      </div>
+
+                      <div className={styles.ratioDetails}>
+                        <span>Tiền gốc: <strong>{formatVND(actualCash)}</strong></span>
+                        <span>Khuyến mãi: <strong>{formatVND(promoCash)}</strong></span>
+                      </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
 
-                    <div className={styles.balanceBlock}>
-                      <span className={styles.balanceLabel}>Số dư khả dụng</span>
-                      <span className={styles.balanceValue}>{formatVND(balance)}</span>
-                    </div>
+          {/* Right Card: Treatments Sessions */}
+          <div className={styles.sectionCard}>
+            <h3 className={styles.sectionTitle}>
+              <Sparkles size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
+              Dịch vụ &amp; Sản phẩm đã mua
+            </h3>
 
-                    <div className={styles.ratioDetails}>
-                      <span>Tiền gốc: <strong>{formatVND(actualCash)}</strong></span>
-                      <span>Khuyến mãi: <strong>{formatVND(promoCash)}</strong></span>
+            <div className={styles.treatmentList}>
+              {customer.treatments.length === 0 ? (
+                <div className={styles.emptyText}>Bạn chưa mua gói trị liệu nào. Hãy tham khảo danh mục gợi ý bên dưới nhé!</div>
+              ) : (
+                customer.treatments.map((tr) => {
+                  const total = tr.totalSessions;
+                  const used = tr.usedSessions;
+                  const percent = Math.min(Math.round((used / total) * 100), 100);
+
+                  return (
+                    <div key={tr.id} className={styles.treatmentItem}>
+                      <div className={styles.treatmentHeader}>
+                        <span className={styles.treatmentName}>{tr.service.name}</span>
+                        <span className={styles.sessionsFraction}>{used}/{total} buổi</span>
+                      </div>
+
+                      <div className={styles.progressBarContainer}>
+                        <div
+                          className={styles.progressBar}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Right Card: Treatments Sessions */}
-        <div className={styles.sectionCard}>
+        {/* Hàng 2: Lịch sử điều trị */}
+        <div id="history" className={styles.sectionCard}>
           <h3 className={styles.sectionTitle}>
-            <Sparkles size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
-            Dịch vụ của bạn (Đã mua)
+            <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
+            Lịch sử điều trị
           </h3>
 
-          <div className={styles.treatmentList}>
-            {customer.treatments.length === 0 ? (
-              <div className={styles.emptyText}>Bạn chưa mua gói trị liệu nào. Hãy tham khảo danh mục gợi ý bên dưới nhé!</div>
+          <div className={styles.historyList}>
+            {customer.usageLogs.length === 0 ? (
+              <div className={styles.emptyText}>Chưa ghi nhận lịch sử điều trị nào.</div>
             ) : (
-              customer.treatments.map((tr) => {
-                const total = tr.totalSessions;
-                const used = tr.usedSessions;
-                const percent = Math.min(Math.round((used / total) * 100), 100);
+              customer.usageLogs.map((log) => {
+                const formattedDate = new Date(log.usedAt).toLocaleDateString("vi-VN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
 
                 return (
-                  <div key={tr.id} className={styles.treatmentItem}>
-                    <div className={styles.treatmentHeader}>
-                      <span className={styles.treatmentName}>{tr.service.name}</span>
-                      <span className={styles.sessionsFraction}>{used}/{total} buổi</span>
+                  <div key={log.id} className={styles.historyItem}>
+                    <div className={styles.historyLeft}>
+                      <span className={styles.historyService}>{log.service.name}</span>
+                      <span className={styles.historyMeta}>
+                        Kỹ thuật viên: {log.performedBy} | Thời gian: {formattedDate}
+                      </span>
                     </div>
 
-                    <div className={styles.progressBarContainer}>
-                      <div
-                        className={styles.progressBar}
-                        style={{ width: `${percent}%` }}
-                      />
+                    <div className={styles.historyRight}>
+                      {log.sourceType === "card" ? (
+                        <>
+                          <span className={styles.deductionAmount} style={{ color: "var(--accent-rose)" }}>
+                            -{formatVND(log.amountDeducted)}
+                          </span>
+                          <span className={styles.deductionSource}>Trừ thẻ</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={styles.deductionAmount} style={{ color: "var(--accent-gold)" }}>
+                            -{log.sessionsDeducted} buổi
+                          </span>
+                          <span className={styles.deductionSource}>Trừ liệu trình</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -339,59 +343,6 @@ export default async function CustomerDashboard() {
                 </Link>
               </div>
             ))
-          )}
-        </div>
-      </section>
-
-      {/* Lower Section: Usage History */}
-      <section id="history" className={styles.sectionCard}>
-        <h3 className={styles.sectionTitle}>
-          <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
-          Nhật ký trị liệu gần đây
-        </h3>
-
-        <div className={styles.historyList}>
-          {customer.usageLogs.length === 0 ? (
-            <div className={styles.emptyText}>Chưa ghi nhận lịch sử trị liệu nào.</div>
-          ) : (
-            customer.usageLogs.map((log) => {
-              const formattedDate = new Date(log.usedAt).toLocaleDateString("vi-VN", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-
-              return (
-                <div key={log.id} className={styles.historyItem}>
-                  <div className={styles.historyLeft}>
-                    <span className={styles.historyService}>{log.service.name}</span>
-                    <span className={styles.historyMeta}>
-                      Kỹ thuật viên: {log.performedBy} | Thời gian: {formattedDate}
-                    </span>
-                  </div>
-
-                  <div className={styles.historyRight}>
-                    {log.sourceType === "card" ? (
-                      <>
-                        <span className={styles.deductionAmount} style={{ color: "var(--accent-rose)" }}>
-                          -{formatVND(log.amountDeducted)}
-                        </span>
-                        <span className={styles.deductionSource}>Trừ thẻ</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className={styles.deductionAmount} style={{ color: "var(--accent-gold)" }}>
-                          -{log.sessionsDeducted} buổi
-                        </span>
-                        <span className={styles.deductionSource}>Trừ liệu trình</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })
           )}
         </div>
       </section>

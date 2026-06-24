@@ -2,6 +2,71 @@ import { db } from "@/lib/db";
 import styles from "./page.module.css";
 import { TrendingUp, Percent, DollarSign, Wallet, Users, BarChart3, Calendar } from "lucide-react";
 
+function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }>, allStaff: any[]) {
+  const items = inv.items || [];
+  if (items.length === 0) {
+    if (inv.staffId) {
+      if (!saleDoanhSo[inv.staffId]) {
+        const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+      }
+      saleDoanhSo[inv.staffId].totalSales += amountPaid;
+    }
+    return;
+  }
+
+  const itemValues = items.map((it: any) => {
+    const price = Number(it.price);
+    const qty = Number(it.quantity || 1);
+    const disc = Number(it.discount || 0);
+    return Math.max(0, (price * qty) - disc);
+  });
+  const totalItemValues = itemValues.reduce((sum: number, v: number) => sum + v, 0);
+
+  if (totalItemValues === 0) {
+    if (inv.staffId) {
+      if (!saleDoanhSo[inv.staffId]) {
+        const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+      }
+      saleDoanhSo[inv.staffId].totalSales += amountPaid;
+    }
+    return;
+  }
+
+  items.forEach((it: any, idx: number) => {
+    const itemVal = itemValues[idx];
+    const itemShare = (itemVal / totalItemValues) * amountPaid;
+
+    let selectedStaffIds: string[] = [];
+    try {
+      if (Array.isArray(it.saleStaffIds)) {
+        selectedStaffIds = it.saleStaffIds;
+      } else if (typeof it.saleStaffIds === "string") {
+        selectedStaffIds = JSON.parse(it.saleStaffIds);
+      }
+    } catch (e) {}
+
+    if (selectedStaffIds.length === 0) {
+      const fallbackId = it.staffId || inv.staffId;
+      if (fallbackId) {
+        selectedStaffIds = [fallbackId];
+      }
+    }
+
+    if (selectedStaffIds.length > 0) {
+      const splitShare = itemShare / selectedStaffIds.length;
+      selectedStaffIds.forEach((staffId) => {
+        if (!saleDoanhSo[staffId]) {
+          const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
+          saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+        }
+        saleDoanhSo[staffId].totalSales += splitShare;
+      });
+    }
+  });
+}
+
 export const dynamic = "force-dynamic";
 
 const formatVND = (value: any) => {
@@ -65,60 +130,78 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     endDate.setHours(23, 59, 59, 999);
   }
 
-  // 1. Fetch Invoices and calculate basic metrics in range
-  const invoices = await db.invoice.findMany({
-    where: {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-    include: {
-      staff: true,
-      schedules: {
-        select: {
-          amount: true,
+  // Run all reports queries in parallel for peak performance
+  const [invoices, paidSchedules, unpaidSchedules, usageLogs, allStaff] = await Promise.all([
+    // 1. Fetch Invoices in range
+    db.invoice.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
         },
       },
-    },
-  });
+      include: {
+        staff: true,
+        schedules: {
+          select: {
+            amount: true,
+          },
+        },
+        items: true,
+      },
+    }),
 
-  // 2. Fetch Paid installments in range
-  const paidSchedules = await db.installmentSchedule.findMany({
-    where: {
-      status: "paid",
-      paidAt: {
-        gte: startDate,
-        lte: endDate,
+    // 2. Fetch Paid installments in range (only Spa's counter debt)
+    db.installmentSchedule.findMany({
+      where: {
+        status: "paid",
+        paidAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+        invoice: {
+          installmentType: "counter",
+        },
       },
-    },
-    include: {
-      invoice: {
-        include: { staff: true },
+      include: {
+        invoice: {
+          include: {
+            staff: true,
+            items: true,
+          },
+        },
       },
-    },
-  });
+    }),
 
-  // 3. Fetch unpaid schedules (current outstanding debt)
-  const unpaidSchedules = await db.installmentSchedule.findMany({
-    where: { status: "pending" },
-    include: {
-      invoice: {
-        include: { customer: true },
+    // 3. Fetch unpaid schedules (current outstanding Spa debt)
+    db.installmentSchedule.findMany({
+      where: {
+        status: "pending",
+        invoice: {
+          installmentType: "counter",
+        },
       },
-    },
-  });
+      include: {
+        invoice: {
+          include: { customer: true },
+        },
+      },
+    }),
 
-  // 4. Fetch Usage Logs in range
-  const usageLogs = await db.usageLog.findMany({
-    where: {
-      usedAt: {
-        gte: startDate,
-        lte: endDate,
+    // 4. Fetch Usage Logs in range
+    db.usageLog.findMany({
+      where: {
+        usedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
-    },
-    include: { service: true },
-  });
+      include: { service: true },
+    }),
+
+    // 5. Fetch all staff members
+    db.staff.findMany(),
+  ]);
 
   let totalRevenue = 0;
   let totalBankFee = 0;
@@ -132,23 +215,18 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
     let invRevenue = 0;
     if (inv.paymentType === "installment") {
-      const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
-      invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+      if (inv.installmentType === "counter") {
+        const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+        invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+      } else {
+        invRevenue = finalAmt; // Home Credit / Mirae Asset pays full amount immediately
+      }
     } else {
       invRevenue = finalAmt;
     }
     totalRevenue += invRevenue;
 
-    if (inv.staffId && inv.staff) {
-      if (!saleDoanhSo[inv.staffId]) {
-        saleDoanhSo[inv.staffId] = {
-          staffName: inv.staff.fullName,
-          totalSales: 0,
-          target: 30000000,
-        };
-      }
-      saleDoanhSo[inv.staffId].totalSales += invRevenue;
-    }
+    attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
   });
 
   // Add paid installments in range to revenue and staff sales
@@ -156,17 +234,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     const amt = Number(sch.amount);
     totalRevenue += amt;
 
-    const staffId = sch.invoice.staffId;
-    if (staffId && sch.invoice.staff) {
-      if (!saleDoanhSo[staffId]) {
-        saleDoanhSo[staffId] = {
-          staffName: sch.invoice.staff.fullName,
-          totalSales: 0,
-          target: 30000000,
-        };
-      }
-      saleDoanhSo[staffId].totalSales += amt;
-    }
+    attributeInvoiceSales(sch.invoice, amt, saleDoanhSo, allStaff);
   });
 
   // Service operational costs (30%)
@@ -199,7 +267,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const debtsList = Object.values(customerDebts).sort((a, b) => b.debtAmount - a.debtAmount);
 
   // Sales Leaderboard with precise decimals and target target achievement
-  const allStaff = await db.staff.findMany();
   const saleTarget = 30000000;
   const salesLeaderboard = allStaff.map((st) => {
     const totalSales = saleDoanhSo[st.id]?.totalSales || 0;

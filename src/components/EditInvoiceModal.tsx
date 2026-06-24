@@ -40,6 +40,7 @@ interface EditableItem {
   quantity: number;
   discount: string; // localized string format
   staffId: string;
+  saleStaffIds: string[];
 }
 
 export default function EditInvoiceModal({
@@ -130,15 +131,27 @@ export default function EditInvoiceModal({
       setIsDownPaymentManuallyEdited(data.paymentType === "installment");
       
       setEditItems(
-        data.items.map((itm: any) => ({
-          id: itm.id,
-          name: getItemName(itm.itemType, itm.itemId),
-          itemType: itm.itemType,
-          price: Number(itm.price),
-          quantity: itm.quantity,
-          discount: formatMoneyInput(itm.discount.toString()),
-          staffId: itm.staffId || "",
-        }))
+        data.items.map((itm: any) => {
+          let selectedStaffIds: string[] = [];
+          try {
+            if (Array.isArray(itm.saleStaffIds)) {
+              selectedStaffIds = itm.saleStaffIds;
+            } else if (typeof itm.saleStaffIds === "string") {
+              selectedStaffIds = JSON.parse(itm.saleStaffIds);
+            }
+          } catch (e) {}
+
+          return {
+            id: itm.id,
+            name: getItemName(itm.itemType, itm.itemId),
+            itemType: itm.itemType,
+            price: Number(itm.price),
+            quantity: itm.quantity,
+            discount: formatMoneyInput(itm.discount.toString()),
+            staffId: itm.staffId || "",
+            saleStaffIds: selectedStaffIds,
+          };
+        })
       );
       setSavedSchedules(data.schedules || []);
     } catch (err: any) {
@@ -203,8 +216,8 @@ export default function EditInvoiceModal({
     );
   };
 
-  const handleItemStaffChange = (id: string, staffIdVal: string) => {
-    setEditItems(editItems.map((item) => (item.id === id ? { ...item, staffId: staffIdVal } : item)));
+  const handleItemStaffsChange = (id: string, selectedStaffIds: string[]) => {
+    setEditItems(editItems.map((item) => (item.id === id ? { ...item, saleStaffIds: selectedStaffIds } : item)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -218,9 +231,9 @@ export default function EditInvoiceModal({
       return;
     }
 
-    const missingStaff = editItems.find((itm) => !itm.staffId);
+    const missingStaff = editItems.find((itm) => !itm.saleStaffIds || itm.saleStaffIds.length === 0);
     if (missingStaff) {
-      setError(`Vui lòng chọn nhân viên chịu trách nhiệm/sale cho "${missingStaff.name}"`);
+      setError(`Vui lòng chọn ít nhất một nhân viên tư vấn (Sale/NV) cho "${missingStaff.name}"`);
       setLoading(false);
       return;
     }
@@ -241,7 +254,8 @@ export default function EditInvoiceModal({
           items: editItems.map((itm) => ({
             id: itm.id,
             discount: Number(parseMoneyInput(itm.discount)),
-            staffId: itm.staffId,
+            staffId: itm.saleStaffIds?.[0] || itm.staffId || null,
+            saleStaffIds: itm.saleStaffIds || [],
           })),
         }),
       });
@@ -360,20 +374,55 @@ export default function EditInvoiceModal({
                             disabled={loading}
                           />
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: "1 1 auto", minWidth: "120px" }}>
-                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>NV:</label>
-                          <select
-                            className={`${styles.select} ${styles.actionInput}`}
-                            value={item.staffId}
-                            onChange={(e) => handleItemStaffChange(item.id, e.target.value)}
-                            disabled={loading}
-                            required
-                          >
-                            <option value="">-- Chọn --</option>
-                            {staff.map((st) => (
-                              <option key={st.id} value={st.id}>{st.fullName}</option>
-                            ))}
-                          </select>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", flex: "1 1 auto", width: "100%" }}>
+                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>Sale/NV (chọn nhiều):</label>
+                          <div style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "0.4rem",
+                            padding: "0.4rem",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "6px",
+                            background: "var(--bg-primary)",
+                            maxHeight: "100px",
+                            overflowY: "auto",
+                            width: "100%"
+                          }}>
+                            {staff.map((st) => {
+                              const isChecked = item.saleStaffIds?.includes(st.id);
+                              return (
+                                <label key={st.id} style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.25rem",
+                                  fontSize: "0.8rem",
+                                  cursor: "pointer",
+                                  padding: "0.15rem 0.35rem",
+                                  borderRadius: "4px",
+                                  background: isChecked ? "rgba(212, 175, 55, 0.1)" : "transparent",
+                                  border: isChecked ? "1px solid var(--accent-gold)" : "1px solid transparent",
+                                  color: isChecked ? "var(--accent-gold)" : "var(--text-primary)",
+                                  fontWeight: isChecked ? 600 : 400
+                                }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      let newIds = [...(item.saleStaffIds || [])];
+                                      if (e.target.checked) {
+                                        if (!newIds.includes(st.id)) newIds.push(st.id);
+                                      } else {
+                                        newIds = newIds.filter(id => id !== st.id);
+                                      }
+                                      handleItemStaffsChange(item.id, newIds);
+                                    }}
+                                    style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
+                                  />
+                                  {st.fullName}
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -382,7 +431,7 @@ export default function EditInvoiceModal({
               </div>
 
               {/* Section 2.5: Saved Installments (Debt Collection) */}
-              {savedSchedules.length > 0 && (
+              {savedSchedules.length > 0 && installmentType === "counter" && (
                 <div style={{ marginBottom: "1.25rem" }}>
                   <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-rose)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
                     💸 Chi tiết công nợ & Thu nợ trực tiếp
@@ -569,24 +618,6 @@ export default function EditInvoiceModal({
                   <span>Tổng thanh toán:</span>
                   <span>{finalAmount.toLocaleString("vi-VN")}đ</span>
                 </div>
-
-                {paymentType === "installment" && (
-                  <div className={styles.previewSchedule}>
-                    <span className={styles.label}>Lịch trả góp mới:</span>
-                    <div className={styles.scheduleGrid}>
-                      <div className={styles.scheduleCard}>
-                        Trả trước:
-                        <strong>{Number(parseMoneyInput(downPayment) || 0).toLocaleString("vi-VN")}đ</strong>
-                      </div>
-                      {previewInstallments.map((inst) => (
-                        <div key={inst.month} className={styles.scheduleCard}>
-                          T{inst.month}:
-                          <strong>{inst.amount.toLocaleString("vi-VN")}đ</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Footer buttons */}

@@ -151,6 +151,7 @@ export async function POST(request: Request) {
               quantity: itemQty,
               discount: itemDiscount,
               staffId: item.staffId || null,
+              saleStaffIds: item.saleStaffIds || [],
             },
           })
         );

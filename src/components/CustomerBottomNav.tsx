@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Tag, Award, Wallet, Activity } from "lucide-react";
+import { Home, Tag, Wallet, Activity, Calendar } from "lucide-react";
 import styles from "@/app/customer/layout.module.css";
 
 export default function CustomerBottomNav() {
@@ -11,7 +11,7 @@ export default function CustomerBottomNav() {
   const navItems = [
     { name: "Trang chủ", path: "/customer", icon: <Home size={18} /> },
     { name: "Khuyến mãi", path: "/customer#promotions", icon: <Tag size={18} /> },
-    { name: "Tích điểm", path: "/customer#points", icon: <Award size={18} /> },
+    { name: "Đặt lịch", path: "/customer/booking", icon: <Calendar size={18} />, highlight: true },
     { name: "Dịch vụ", path: "/customer#services", icon: <Wallet size={18} /> },
     { name: "Lịch sử", path: "/customer#history", icon: <Activity size={18} /> },
   ];
@@ -24,10 +24,21 @@ export default function CustomerBottomNav() {
           <Link
             key={item.name}
             href={item.path}
-            className={`${styles.bottomNavItem} ${isActive ? styles.bottomNavItemActive : ""}`}
+            className={`${styles.bottomNavItem} ${isActive ? styles.bottomNavItemActive : ""} ${item.highlight ? styles.bottomNavHighlight : ""}`}
           >
-            {item.icon}
-            <span>{item.name}</span>
+            {item.highlight ? (
+              <>
+                <div className={styles.highlightIconWrapper}>
+                  {item.icon}
+                </div>
+                <span>{item.name}</span>
+              </>
+            ) : (
+              <>
+                {item.icon}
+                <span>{item.name}</span>
+              </>
+            )}
           </Link>
         );
       })}

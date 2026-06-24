@@ -78,6 +78,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               data: {
                 discount: itemDisc,
                 staff: itm.staffId ? { connect: { id: itm.staffId } } : { disconnect: true },
+                saleStaffIds: itm.saleStaffIds || [],
               },
             });
           }

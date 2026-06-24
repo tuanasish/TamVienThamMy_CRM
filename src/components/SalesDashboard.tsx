@@ -136,9 +136,13 @@ export default function SalesDashboard({
   // Calculate total revenue today
   const dailyTotal = invoices.reduce((sum, inv) => {
     if (inv.paymentType === "installment") {
-      const totalDebt = (inv as any).schedules?.reduce((s: number, sch: any) => s + Number(sch.amount), 0) || 0;
-      const downPayment = Math.max(0, Number(inv.finalAmount) - totalDebt);
-      return sum + downPayment;
+      if (inv.installmentType === "counter") {
+        const totalDebt = (inv as any).schedules?.reduce((s: number, sch: any) => s + Number(sch.amount), 0) || 0;
+        const downPayment = Math.max(0, Number(inv.finalAmount) - totalDebt);
+        return sum + downPayment;
+      } else {
+        return sum + Number(inv.finalAmount); // Home Credit / Mirae Asset is fully realized immediately
+      }
     }
     return sum + Number(inv.finalAmount);
   }, 0);

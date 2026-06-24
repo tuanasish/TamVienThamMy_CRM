@@ -67,10 +67,13 @@ export default function CustomerInvoicesList({
               {invoices.map((inv) => {
                 const finalAmt = Number(inv.finalAmount);
                 
-                // Calculate remaining debt from unpaid schedules
-                const pendingSchedules = inv.schedules?.filter((s: any) => s.status === "pending") || [];
+                // Calculate remaining debt from unpaid schedules (only for counter installment)
+                const isCounter = inv.paymentType !== "installment" || inv.installmentType === "counter";
+                const pendingSchedules = inv.paymentType === "installment" && inv.installmentType === "counter"
+                  ? (inv.schedules?.filter((s: any) => s.status === "pending") || [])
+                  : [];
                 const remainingDebt = pendingSchedules.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
-                const paidAmt = Math.max(finalAmt - remainingDebt, 0);
+                const paidAmt = isCounter ? Math.max(finalAmt - remainingDebt, 0) : finalAmt;
                 
                 const isPaidFull = remainingDebt === 0;
 

@@ -51,8 +51,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   // Fetch unpaid schedules to compute total outstanding debt
   const unpaidSchedules = await db.installmentSchedule.findMany({
     where: {
-      invoice: { customerId: id },
       status: "pending",
+      invoice: {
+        customerId: id,
+        installmentType: "counter",
+      },
     },
     select: { amount: true },
   });

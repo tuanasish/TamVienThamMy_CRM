@@ -60,6 +60,7 @@ interface SelectedItem {
   totalSessions?: number; // for services
   discount: string; // money discount for this specific item line
   staffId: string; // technician/sale assigned to this item
+  saleStaffIds: string[];
 }
 
 export default function CreateInvoiceForm({
@@ -211,6 +212,7 @@ export default function CreateInvoiceForm({
           totalSessions: 1, // Default 1 session
           discount: "0",
           staffId: staffId || "",
+          saleStaffIds: staffId ? [staffId] : [],
         };
       }
     } else if (selectedItemType === "product") {
@@ -224,6 +226,7 @@ export default function CreateInvoiceForm({
           quantity: 1,
           discount: "0",
           staffId: staffId || "",
+          saleStaffIds: staffId ? [staffId] : [],
         };
       }
     } else if (selectedItemType === "card") {
@@ -237,6 +240,7 @@ export default function CreateInvoiceForm({
           quantity: 1,
           discount: "0",
           staffId: staffId || "",
+          saleStaffIds: staffId ? [staffId] : [],
         };
       }
     }
@@ -285,10 +289,10 @@ export default function CreateInvoiceForm({
   };
 
   // Handle staff assignment per item
-  const handleItemStaffChange = (id: string, type: string, selectedStaffId: string) => {
+  const handleItemStaffsChange = (id: string, type: string, selectedStaffIds: string[]) => {
     setSelectedItems(
       selectedItems.map((item) =>
-        item.id === id && item.itemType === type ? { ...item, staffId: selectedStaffId } : item
+        item.id === id && item.itemType === type ? { ...item, saleStaffIds: selectedStaffIds } : item
       )
     );
   };
@@ -314,10 +318,10 @@ export default function CreateInvoiceForm({
       return;
     }
 
-    // Verify all selected items have a staff assigned
-    const missingStaff = selectedItems.find((itm) => !itm.staffId);
+    // Verify all selected items have at least one sale staff assigned
+    const missingStaff = selectedItems.find((itm) => !itm.saleStaffIds || itm.saleStaffIds.length === 0);
     if (missingStaff) {
-      setError(`Vui lòng chọn nhân viên chịu trách nhiệm/sale cho món hàng "${missingStaff.name}"`);
+      setError(`Vui lòng chọn ít nhất một nhân viên tư vấn (Sale/NV) cho món hàng "${missingStaff.name}"`);
       setLoading(false);
       return;
     }
@@ -347,7 +351,8 @@ export default function CreateInvoiceForm({
             quantity: itm.quantity,
             totalSessions: itm.itemType === "service" ? itm.totalSessions : undefined,
             discount: Number(parseMoneyInput(itm.discount || "0")) || 0,
-            staffId: itm.staffId,
+            staffId: itm.saleStaffIds?.[0] || itm.staffId || null,
+            saleStaffIds: itm.saleStaffIds || [],
           })),
           appointmentId: appointmentId || undefined,
         }),
@@ -461,7 +466,18 @@ export default function CreateInvoiceForm({
           <select
             className={styles.select}
             value={staffId}
-            onChange={(e) => setStaffId(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setStaffId(val);
+              if (val) {
+                setSelectedItems(prev => prev.map(itm => {
+                  if (!itm.saleStaffIds || itm.saleStaffIds.length === 0) {
+                    return { ...itm, saleStaffIds: [val] };
+                  }
+                  return itm;
+                }));
+              }
+            }}
             required
             disabled={loading}
           >
@@ -580,6 +596,7 @@ export default function CreateInvoiceForm({
                               totalSessions: 1,
                               discount: "0",
                               staffId: staffId || "",
+                              saleStaffIds: staffId ? [staffId] : [],
                             };
                           } else if (selectedItemType === "product") {
                             newItem = {
@@ -590,6 +607,7 @@ export default function CreateInvoiceForm({
                               quantity: 1,
                               discount: "0",
                               staffId: staffId || "",
+                              saleStaffIds: staffId ? [staffId] : [],
                             };
                           } else {
                             newItem = {
@@ -600,6 +618,7 @@ export default function CreateInvoiceForm({
                               quantity: 1,
                               discount: "0",
                               staffId: staffId || "",
+                              saleStaffIds: staffId ? [staffId] : [],
                             };
                           }
                           setSelectedItems([...selectedItems, newItem]);
@@ -692,22 +711,55 @@ export default function CreateInvoiceForm({
                     </div>
 
                     {/* STAFF / SALE SELECTION PER ITEM */}
-                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthStaff}`}>
-                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Sale/NV:</label>
-                      <select
-                        className={`${styles.select} ${styles.actionInput}`}
-                        value={item.staffId}
-                        onChange={(e) => handleItemStaffChange(item.id, item.itemType, e.target.value)}
-                        disabled={loading}
-                        required
-                      >
-                        <option value="">-- Chọn --</option>
-                        {staff.map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.fullName}
-                          </option>
-                        ))}
-                      </select>
+                    <div className={`${styles.formGroup} ${styles.itemActionRow}`} style={{ flex: 1, minWidth: "220px" }}>
+                      <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>Sale/NV (chọn nhiều):</label>
+                      <div style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.4rem",
+                        padding: "0.4rem",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "6px",
+                        background: "var(--bg-primary)",
+                        maxHeight: "100px",
+                        overflowY: "auto",
+                        width: "100%"
+                      }}>
+                        {staff.map((st) => {
+                          const isChecked = item.saleStaffIds?.includes(st.id);
+                          return (
+                            <label key={st.id} style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.25rem",
+                              fontSize: "0.8rem",
+                              cursor: "pointer",
+                              padding: "0.15rem 0.35rem",
+                              borderRadius: "4px",
+                              background: isChecked ? "rgba(212, 175, 55, 0.1)" : "transparent",
+                              border: isChecked ? "1px solid var(--accent-gold)" : "1px solid transparent",
+                              color: isChecked ? "var(--accent-gold)" : "var(--text-primary)",
+                              fontWeight: isChecked ? 600 : 400
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  let newIds = [...(item.saleStaffIds || [])];
+                                  if (e.target.checked) {
+                                    if (!newIds.includes(st.id)) newIds.push(st.id);
+                                  } else {
+                                    newIds = newIds.filter(id => id !== st.id);
+                                  }
+                                  handleItemStaffsChange(item.id, item.itemType, newIds);
+                                }}
+                                style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
+                              />
+                              {st.fullName}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <Trash2
@@ -849,7 +901,7 @@ export default function CreateInvoiceForm({
         <div className={styles.summaryRow}>
           <span>Giảm giá mặt hàng:</span>
           <span style={{ color: "#dc3545" }}>
-            -{selectedItems.reduce((sum, itm) => sum + (Number(parseMoneyInput(itm.discount)) || 0), 0).toLocaleString("vi-VN")}đ
+            -{selectedItems.reduce((sum, itm) => sum + (Number(parseMoneyInput(itm.discount || "0")) || 0), 0).toLocaleString("vi-VN")}đ
           </span>
         </div>
         <div className={styles.summaryRow}>
@@ -860,24 +912,6 @@ export default function CreateInvoiceForm({
           <span>Tổng thanh toán:</span>
           <span>{finalAmount.toLocaleString("vi-VN")}đ</span>
         </div>
-
-        {paymentType === "installment" && (
-          <div className={styles.previewSchedule}>
-            <span className={styles.label}>Bảng xem trước lịch trả góp:</span>
-            <div className={styles.scheduleGrid}>
-              <div className={styles.scheduleCard}>
-                Trả trước:
-                <strong>{Number(parseMoneyInput(downPayment) || 0).toLocaleString("vi-VN")}đ</strong>
-              </div>
-              {previewInstallments.map((inst) => (
-                <div key={inst.month} className={styles.scheduleCard}>
-                  Tháng {inst.month}:
-                  <strong>{inst.amount.toLocaleString("vi-VN")}đ</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>

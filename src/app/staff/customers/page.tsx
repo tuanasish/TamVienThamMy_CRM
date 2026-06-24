@@ -54,7 +54,12 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
   // Query all pending installment schedules to aggregate outstanding debt in 1 single query
   const pendingSchedules = await db.installmentSchedule.findMany({
-    where: { status: "pending" },
+    where: {
+      status: "pending",
+      invoice: {
+        installmentType: "counter",
+      },
+    },
     select: {
       amount: true,
       invoice: {
