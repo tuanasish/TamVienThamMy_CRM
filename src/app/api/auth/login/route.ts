@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { getMaintenanceStatus } from "@/lib/systemConfig";
 
 export async function POST(request: Request) {
   try {
@@ -58,6 +59,14 @@ export async function POST(request: Request) {
 
       return response;
     } else if (role === "customer") {
+      // Check maintenance status
+      if (getMaintenanceStatus()) {
+        return NextResponse.json(
+          { error: "Hệ thống cổng thông tin khách hàng đang bảo trì định kỳ. Vui lòng quay lại sau." },
+          { status: 503 }
+        );
+      }
+
       const customer = await db.customer.findUnique({
         where: { phone: usernameOrPhone },
       });

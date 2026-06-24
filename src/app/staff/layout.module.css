@@ -211,27 +211,28 @@
 
   .menuItem {
     flex-direction: column;
-    gap: 3px;
-    padding: 0.35rem 0.25rem;
-    font-size: 0.65rem;
+    padding: 0.5rem 0.25rem;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-sm);
-    min-width: 50px;
+    min-width: 40px;
     flex: 1;
     text-align: center;
     color: var(--text-secondary);
   }
 
   .menuItem span {
-    font-size: 0.6rem;
-    font-weight: 500;
-    white-space: nowrap;
+    display: none; /* Hide text on mobile to prevent overlapping */
   }
 
   .menuItem svg {
-    width: 18px;
-    height: 18px;
+    width: 22px; /* Enlarge icons for better touch target and visibility */
+    height: 22px;
+    transition: transform 0.2s ease;
+  }
+
+  .menuItem:active svg {
+    transform: scale(1.2); /* Premium micro-animation when tapped */
   }
 
   .menuItem:hover {
