@@ -16,7 +16,8 @@ import {
   Wallet,
   Tag,
   Lock,
-  Unlock
+  Unlock,
+  UserCog
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -79,6 +80,7 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
     { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} /> },
     { name: "Quản lý công nợ", path: "/staff/debts", icon: <Wallet size={20} /> },
     { name: "Chương trình ưu đãi", path: "/staff/promotions", icon: <Tag size={20} /> },
+    { name: "Quản lý nhân viên", path: "/staff/users", icon: <UserCog size={20} /> },
     { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} /> },
   ];
 

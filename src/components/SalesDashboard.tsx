@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/staff/sales/page.module.css";
 import { 
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import CreateInvoiceForm from "./CreateInvoiceForm";
 import EditInvoiceModal from "./EditInvoiceModal";
+import SalesRecordUsageModal from "./SalesRecordUsageModal";
 
 const TIME_SLOTS = [
   "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -94,6 +95,21 @@ interface InvoiceProp {
   }[];
 }
 
+interface UsageLogProp {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  serviceName: string;
+  sourceType: string; // 'card' or 'treatment'
+  amountDeducted: number;
+  sessionsDeducted: number;
+  performedBy: string;
+  usedAt: string;
+  notes?: string | null;
+  staffName: string;
+}
+
 interface SalesDashboardProps {
   customers: CustomerProp[];
   services: ServiceProp[];
@@ -101,6 +117,10 @@ interface SalesDashboardProps {
   staff: StaffProp[];
   initialAppointments: AppointmentProp[];
   initialInvoices: InvoiceProp[];
+  initialUsageLogs: UsageLogProp[];
+  activeFilter: string;
+  startDate: string;
+  endDate: string;
 }
 
 export default function SalesDashboard({
@@ -110,12 +130,17 @@ export default function SalesDashboard({
   staff,
   initialAppointments,
   initialInvoices,
+  initialUsageLogs,
+  activeFilter,
+  startDate,
+  endDate,
 }: SalesDashboardProps) {
   const router = useRouter();
   
-  // State for appointments and invoices
+  // State for appointments, invoices, and usage logs
   const [appointments, setAppointments] = useState<AppointmentProp[]>(initialAppointments);
   const [invoices, setInvoices] = useState<InvoiceProp[]>(initialInvoices);
+  const [usageLogs, setUsageLogs] = useState<UsageLogProp[]>(initialUsageLogs);
   
   // State for Modal
   const [activeAppointment, setActiveAppointment] = useState<AppointmentProp | null>(null);
@@ -131,6 +156,19 @@ export default function SalesDashboard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Sync state with server-rendered props when filters or database updates trigger new props
+  useEffect(() => {
+    setAppointments(initialAppointments);
+  }, [initialAppointments]);
+
+  useEffect(() => {
+    setInvoices(initialInvoices);
+  }, [initialInvoices]);
+
+  useEffect(() => {
+    setUsageLogs(initialUsageLogs);
+  }, [initialUsageLogs]);
+
   // Helpers to map item IDs to names
   const getItemName = (itemType: string, itemId: string) => {
     if (itemType === "card") {
@@ -139,7 +177,7 @@ export default function SalesDashboard({
     return services.find((s) => s.id === itemId)?.name || "Dịch vụ/Sản phẩm";
   };
 
-  // Calculate total revenue today
+  // Calculate total revenue in selected range
   const dailyTotal = invoices.reduce((sum, inv) => {
     const offset = Number((inv as any).paidAmountOffset || 0);
     if (inv.paymentType === "installment") {
@@ -148,7 +186,7 @@ export default function SalesDashboard({
         const downPayment = Math.max(0, Number(inv.finalAmount) - totalDebt - offset);
         return sum + downPayment;
       } else {
-        return sum + Math.max(0, Number(inv.finalAmount) - offset); // Home Credit / Mirae Asset is fully realized immediately
+        return sum + Math.max(0, Number(inv.finalAmount) - offset);
       }
     }
     return sum + Math.max(0, Number(inv.finalAmount) - offset);
@@ -167,12 +205,7 @@ export default function SalesDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể check-in");
 
-      // Update state locally
-      setAppointments(
-        appointments.map((appt) =>
-          appt.id === appointmentId ? { ...appt, status: "checked_in" } : appt
-        )
-      );
+      // Trigger router refresh to pull updated database states
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -195,12 +228,6 @@ export default function SalesDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể hủy lịch");
 
-      // Update state locally
-      setAppointments(
-        appointments.map((appt) =>
-          appt.id === appointmentId ? { ...appt, status: "cancelled" } : appt
-        )
-      );
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -233,18 +260,12 @@ export default function SalesDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể lưu lịch hẹn");
 
-      // Fetch fresh list for today
-      const todayRes = await fetch("/api/appointments");
-      const todayData = await todayRes.json();
-      if (todayRes.ok) {
-        setAppointments(todayData);
-      }
-
       setNewApptCustomer("");
       setNewApptDate(new Date().toLocaleDateString("sv-SE"));
       setNewApptTime("09:00");
       setNewApptNotes("");
       setShowAppointmentModal(false);
+      
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -253,43 +274,11 @@ export default function SalesDashboard({
     }
   };
 
-  // Success handler after creating invoice
-  const handleInvoiceSuccess = async () => {
+  // Success handler after creating invoice or recording service usage
+  const handleInvoiceSuccess = () => {
     setShowInvoiceModal(false);
     setActiveAppointment(null);
-    setLoading(true);
-    try {
-      // Refresh local states
-      const [apptRes, invRes] = await Promise.all([
-        fetch("/api/appointments"),
-        fetch("/api/invoices"), // we could add date filters but let's fetch list
-      ]);
-      
-      const appts = await apptRes.json();
-      const invs = await invRes.json();
-      
-      if (apptRes.ok) setAppointments(appts);
-      
-      // Filter today's invoices
-      if (invRes.ok) {
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
-        
-        const filteredInvs = invs.filter((inv: any) => {
-          const cDate = new Date(inv.createdAt);
-          return cDate >= todayStart && cDate <= todayEnd;
-        });
-        setInvoices(filteredInvs);
-      }
-      
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    router.refresh();
   };
 
   // Delete invoice handler
@@ -304,11 +293,21 @@ export default function SalesDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể xóa hóa đơn");
       
-      // Refresh local states
       handleInvoiceSuccess();
     } catch (err: any) {
       setError(err.message);
       setLoading(false);
+    }
+  };
+
+  const getFilterText = () => {
+    switch (activeFilter) {
+      case "today": return "Hôm nay";
+      case "yesterday": return "Hôm qua";
+      case "7days": return "7 ngày qua";
+      case "month": return "Tháng này";
+      case "custom": return `Từ ${new Date(startDate).toLocaleDateString("vi-VN")} đến ${new Date(endDate).toLocaleDateString("vi-VN")}`;
+      default: return "Hôm nay";
     }
   };
 
@@ -322,15 +321,15 @@ export default function SalesDashboard({
 
       {/* SECTION 1: TODAY STATS & SALES LIST */}
       <div className={styles.statsSummaryGrid}>
-        {/* Total Today Revenue Card */}
+        {/* Total Revenue Card */}
         <div className={styles.summaryValueCard}>
           <div className={styles.statIcon} style={{ background: "rgba(197, 160, 89, 0.15)", color: "var(--accent-gold)" }}>
             <DollarSign size={24} />
           </div>
           <div>
-            <span className={styles.statLabel}>Doanh thu hôm nay</span>
+            <span className={styles.statLabel}>Thực thu bán hàng ({getFilterText()})</span>
             <h2 className={styles.statValue}>{dailyTotal.toLocaleString("vi-VN")}đ</h2>
-            <span className={styles.statSublabel}>Tổng thu nhập thực tế trong ngày</span>
+            <span className={styles.statSublabel}>Tổng doanh thu bán lẻ thực tế đã thu</span>
           </div>
         </div>
 
@@ -340,20 +339,126 @@ export default function SalesDashboard({
             <FileText size={24} />
           </div>
           <div>
-            <span className={styles.statLabel}>Số lượng hóa đơn</span>
-            <h2 className={styles.statValue}>{invoices.length} lượt</h2>
-            <span className={styles.statSublabel}>Hóa đơn thanh toán hoàn tất hôm nay</span>
+            <span className={styles.statLabel}>Lượt hóa đơn lập mới</span>
+            <h2 className={styles.statValue}>{invoices.length} hóa đơn</h2>
+            <span className={styles.statSublabel}>Giao dịch thanh toán được hoàn tất</span>
           </div>
         </div>
       </div>
 
+      {/* Date Filter Toolbar */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "1rem",
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        padding: "1rem 1.5rem",
+        boxShadow: "var(--shadow-sm)",
+        marginBottom: "0.5rem"
+      }}>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <a href={`?filter=today`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: activeFilter === "today" ? "white" : "var(--text-secondary)",
+            background: activeFilter === "today" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: activeFilter === "today" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Hôm nay</a>
+          <a href={`?filter=yesterday`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: activeFilter === "yesterday" ? "white" : "var(--text-secondary)",
+            background: activeFilter === "yesterday" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: activeFilter === "yesterday" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>Hôm qua</a>
+          <a href={`?filter=7days`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: activeFilter === "7days" ? "white" : "var(--text-secondary)",
+            background: activeFilter === "7days" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: activeFilter === "7days" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>7 ngày</a>
+          <a href={`?filter=month`} style={{
+            padding: "0.4rem 0.9rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: activeFilter === "month" ? "white" : "var(--text-secondary)",
+            background: activeFilter === "month" ? "var(--grad-premium)" : "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "var(--radius-sm)",
+            textDecoration: "none",
+            boxShadow: activeFilter === "month" ? "0 2px 8px rgba(197,160,89,0.2)" : "none"
+          }}>1 tháng</a>
+        </div>
+        <form method="GET" action="/staff/sales" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <input type="hidden" name="filter" value="custom" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+            <input
+              type="date"
+              name="startDate"
+              defaultValue={startDate}
+              style={{
+                padding: "0.35rem 0.75rem",
+                fontSize: "0.8rem",
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)"
+              }}
+              required
+            />
+            <span>đến</span>
+            <input
+              type="date"
+              name="endDate"
+              defaultValue={endDate}
+              style={{
+                padding: "0.35rem 0.75rem",
+                fontSize: "0.8rem",
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)"
+              }}
+              required
+            />
+          </div>
+          <button type="submit" style={{
+            padding: "0.35rem 1rem",
+            fontSize: "0.8rem",
+            fontWeight: "700",
+            color: "white",
+            background: "var(--text-primary)",
+            border: "none",
+            borderRadius: "var(--radius-sm)",
+            cursor: "pointer"
+          }}>Lọc</button>
+        </form>
+      </div>
+
       <div className={styles.gridContainer}>
-        {/* LEFT COLUMN: TODAY'S APPOINTMENTS */}
+        {/* LEFT COLUMN: APPOINTMENTS */}
         <div className={styles.sectionCard}>
           <div className={styles.cardHeaderFlex}>
             <h3 className={styles.sectionTitle}>
               <Calendar size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-              Lịch hẹn hôm nay ({appointments.length})
+              Lịch hẹn đăng ký ({appointments.length})
             </h3>
             <button 
               onClick={() => {
@@ -370,7 +475,7 @@ export default function SalesDashboard({
 
           <div style={{ overflowX: "auto", marginTop: "1rem" }}>
             {appointments.length === 0 ? (
-              <div className={styles.emptyText}>Chưa có lịch hẹn nào được đăng ký hôm nay.</div>
+              <div className={styles.emptyText}>Chưa có lịch hẹn nào được ghi nhận trong thời gian này.</div>
             ) : (
               <table className={styles.table}>
                 <thead>
@@ -396,6 +501,9 @@ export default function SalesDashboard({
                             <Clock size={14} style={{ color: "var(--accent-gold)" }} />
                             {formattedTime}
                           </div>
+                          <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                            {dateObj.toLocaleDateString("vi-VN")}
+                          </div>
                         </td>
                         <td>
                           <div style={{ fontWeight: 600 }}>{appt.customer.fullName}</div>
@@ -413,7 +521,7 @@ export default function SalesDashboard({
                           {appt.status === "cancelled" && <span className={`${styles.badge} ${styles.badgeCancelled}`}>Đã hủy</span>}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
+                          <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
                             {appt.status === "pending" && (
                               <>
                                 <button
@@ -435,20 +543,29 @@ export default function SalesDashboard({
                               </>
                             )}
                             {appt.status === "checked_in" && (
-                              <button
-                                onClick={() => {
-                                  setActiveAppointment(appt);
-                                  setShowInvoiceModal(true);
-                                }}
-                                className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
-                                title="Tạo hóa đơn cho khách"
-                              >
-                                <FileText size={14} /> Tạo hóa đơn
-                              </button>
+                              <>
+                                <SalesRecordUsageModal
+                                  customerId={appt.customerId}
+                                  customerName={appt.customer.fullName}
+                                  services={services}
+                                  staffMembers={staff}
+                                  onSuccess={handleInvoiceSuccess}
+                                />
+                                <button
+                                  onClick={() => {
+                                    setActiveAppointment(appt);
+                                    setShowInvoiceModal(true);
+                                  }}
+                                  className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
+                                  title="Tạo hóa đơn cho khách"
+                                >
+                                  <FileText size={14} /> Tạo hóa đơn
+                                </button>
+                              </>
                             )}
                             {(appt.status === "completed" || appt.status === "cancelled") && (
                               <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontStyle: "italic" }}>
-                                Không có
+                                Đã xử lý
                               </span>
                             )}
                           </div>
@@ -462,117 +579,192 @@ export default function SalesDashboard({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: TODAY'S STATISTICS 3-COLUMN TABLE */}
-        <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>
-            <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-            Thống kê doanh số bán hàng trong ngày
-          </h3>
+        {/* RIGHT COLUMN: RETAIL SALES & SERVICE USAGES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          
+          {/* TODAY'S SALES INVOICES */}
+          <div className={styles.sectionCard}>
+            <h3 className={styles.sectionTitle}>
+              <CreditCard size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
+              Hóa đơn bán hàng cấp mới ({invoices.length})
+            </h3>
 
-          <div style={{ overflowX: "auto", marginTop: "1rem" }}>
-            {invoices.length === 0 ? (
-              <div className={styles.emptyText}>Chưa ghi nhận hóa đơn bán lẻ nào hôm nay.</div>
-            ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Khách hàng</th>
-                    <th>Mặt hàng mua</th>
-                    <th style={{ textAlign: "right" }}>Thanh toán</th>
-                    <th style={{ textAlign: "right" }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <User size={14} style={{ color: "var(--text-secondary)" }} />
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{inv.customer.fullName}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{inv.customer.phone}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className={styles.salesItemList}>
-                          {inv.items.map((item) => {
-                            const itemPrice = Number(item.price);
-                            const itemDisc = Number(item.discount || 0);
-                            const subtotal = Math.max((itemPrice * item.quantity) - itemDisc, 0);
-                            return (
-                              <div key={item.id} className={styles.salesItemTag}>
-                                • {getItemName(item.itemType, item.itemId)}{" "}
-                                <span style={{ color: "var(--text-secondary)" }}>
-                                  (x{item.quantity})
-                                </span>
-                                <span style={{ marginLeft: "0.25rem", fontWeight: 600, color: "var(--accent-gold)" }}>
-                                  - {subtotal.toLocaleString("vi-VN")}đ
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: "700", color: "var(--accent-gold)" }}>
-                          {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
-                          {(() => {
-                            const cash = Number(inv.paidAmountCash || 0);
-                            const transfer = Number(inv.paidAmountTransfer || 0);
-                            const hc = Number(inv.paidAmountHomeCredit || 0);
-                            const ma = Number(inv.paidAmountMiraeAsset || 0);
-                            const debt = Number(inv.paidAmountDebt || 0);
-
-                            const parts = [];
-                            if (cash > 0) parts.push(`Mặt: ${cash.toLocaleString("vi-VN")}đ`);
-                            if (transfer > 0) parts.push(`CK: ${transfer.toLocaleString("vi-VN")}đ`);
-                            if (hc > 0) parts.push(`Home: ${hc.toLocaleString("vi-VN")}đ`);
-                            if (ma > 0) parts.push(`Mirae: ${ma.toLocaleString("vi-VN")}đ`);
-                            if (debt > 0) parts.push(`Nợ: ${debt.toLocaleString("vi-VN")}đ`);
-
-                            if (parts.length === 0) {
-                              return inv.paymentType === "installment"
-                                ? `Trả góp: ${
-                                    inv.installmentType === "home_credit"
-                                      ? "Home Credit"
-                                      : inv.installmentType === "mirae_asset"
-                                      ? "Mirae Asset"
-                                      : "Tại quầy"
-                                  }`
-                                : "Tiền mặt";
-                            }
-                            return parts.join(" | ");
-                          })()}
-                        </div>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                          <EditInvoiceModal
-                            invoice={inv}
-                            services={services}
-                            cardTemplates={cardTemplates}
-                            staff={staff}
-                            onSuccess={handleInvoiceSuccess}
-                          />
-                          <button
-                            onClick={() => handleDeleteInvoice(inv.id)}
-                            disabled={loading}
-                            className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
-                            title="Xóa hóa đơn"
-                          >
-                            <Trash2 size={14} /> Xóa
-                          </button>
-                        </div>
-                      </td>
+            <div style={{ overflowX: "auto", marginTop: "1rem" }}>
+              {invoices.length === 0 ? (
+                <div className={styles.emptyText}>Chưa ghi nhận hóa đơn bán lẻ nào trong thời gian này.</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Khách hàng</th>
+                      <th>Mặt hàng mua</th>
+                      <th style={{ textAlign: "right" }}>Thanh toán</th>
+                      <th style={{ textAlign: "right" }}>Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => (
+                      <tr key={inv.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <User size={14} style={{ color: "var(--text-secondary)" }} />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{inv.customer.fullName}</div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{inv.customer.phone}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className={styles.salesItemList}>
+                            {inv.items.map((item) => {
+                              const itemPrice = Number(item.price);
+                              const itemDisc = Number(item.discount || 0);
+                              const subtotal = Math.max((itemPrice * item.quantity) - itemDisc, 0);
+                              return (
+                                <div key={item.id} className={styles.salesItemTag}>
+                                  • {getItemName(item.itemType, item.itemId)}{" "}
+                                  <span style={{ color: "var(--text-secondary)" }}>
+                                    (x{item.quantity})
+                                  </span>
+                                  <span style={{ marginLeft: "0.25rem", fontWeight: 600, color: "var(--accent-gold)" }}>
+                                    - {subtotal.toLocaleString("vi-VN")}đ
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ fontWeight: "700", color: "var(--accent-gold)" }}>
+                            {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
+                          </div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                            {(() => {
+                              const cash = Number(inv.paidAmountCash || 0);
+                              const transfer = Number(inv.paidAmountTransfer || 0);
+                              const hc = Number(inv.paidAmountHomeCredit || 0);
+                              const ma = Number(inv.paidAmountMiraeAsset || 0);
+                              const debt = Number(inv.paidAmountDebt || 0);
+
+                              const parts = [];
+                              if (cash > 0) parts.push(`Mặt: ${cash.toLocaleString("vi-VN")}đ`);
+                              if (transfer > 0) parts.push(`CK: ${transfer.toLocaleString("vi-VN")}đ`);
+                              if (hc > 0) parts.push(`Home: ${hc.toLocaleString("vi-VN")}đ`);
+                              if (ma > 0) parts.push(`Mirae: ${ma.toLocaleString("vi-VN")}đ`);
+                              if (debt > 0) parts.push(`Nợ: ${debt.toLocaleString("vi-VN")}đ`);
+
+                              if (parts.length === 0) {
+                                return inv.paymentType === "installment"
+                                  ? `Trả góp: ${
+                                      inv.installmentType === "home_credit"
+                                        ? "Home Credit"
+                                        : inv.installmentType === "mirae_asset"
+                                        ? "Mirae Asset"
+                                        : "Tại quầy"
+                                    }`
+                                  : "Tiền mặt";
+                              }
+                              return parts.join(" | ");
+                            })()}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                            <EditInvoiceModal
+                              invoice={inv}
+                              services={services}
+                              cardTemplates={cardTemplates}
+                              staff={staff}
+                              onSuccess={handleInvoiceSuccess}
+                            />
+                            <button
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              disabled={loading}
+                              className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
+                              title="Xóa hóa đơn"
+                            >
+                              <Trash2 size={14} /> Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
+
+          {/* TODAY'S SERVICE USAGES */}
+          <div className={styles.sectionCard}>
+            <h3 className={styles.sectionTitle}>
+              <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
+              Nhật ký khách hàng dùng dịch vụ ({usageLogs.length})
+            </h3>
+
+            <div style={{ overflowX: "auto", marginTop: "1rem" }}>
+              {usageLogs.length === 0 ? (
+                <div className={styles.emptyText}>Chưa ghi nhận lượt khách sử dụng dịch vụ nào trong thời gian này.</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Khách hàng</th>
+                      <th>Dịch vụ sử dụng</th>
+                      <th>Hình thức trừ</th>
+                      <th>Nhân sự thực hiện</th>
+                      <th style={{ textAlign: "right" }}>Thời gian</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageLogs.map((log) => {
+                      const logDate = new Date(log.usedAt);
+                      return (
+                        <tr key={log.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{log.customerName}</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{log.customerPhone}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{log.serviceName}</div>
+                            {log.notes && (
+                              <div style={{ fontSize: "0.75rem", color: "var(--accent-gold)", fontStyle: "italic", marginTop: "0.15rem" }}>
+                                "{log.notes}"
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {log.sourceType === "card" ? (
+                              <span style={{ color: "var(--accent-gold)", fontWeight: "700" }}>
+                                -{log.amountDeducted.toLocaleString("vi-VN")}đ
+                              </span>
+                            ) : (
+                              <span style={{ color: "var(--accent-rose)", fontWeight: "700" }}>
+                                -{log.sessionsDeducted} buổi
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 500 }}>{log.performedBy} (KTV)</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Ghi nhận: {log.staffName}</div>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ fontWeight: "700" }}>
+                              {logDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                              {logDate.toLocaleDateString("vi-VN")}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
 

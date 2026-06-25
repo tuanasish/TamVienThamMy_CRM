@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { db } from "@/lib/db";
 import { getVietnamToday, formatVietnamDate } from "@/lib/timezone";
 import styles from "./page.module.css";
