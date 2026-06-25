@@ -76,7 +76,9 @@ export default function SpaConfigTabs({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const servicesOnly = initialServices.filter((sv) => sv.type !== "product");
+  const servicesOnly = initialServices.filter(
+    (sv) => sv.type !== "product" && (sv.sessions === undefined || sv.sessions <= 1)
+  );
   const productsOnly = initialServices.filter((sv) => sv.type === "product");
 
   const handleCreateService = async (e: React.FormEvent) => {
@@ -559,8 +561,28 @@ export default function SpaConfigTabs({
                     <>
                       {/* Dịch vụ */}
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--accent-gold)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
-                          Dịch vụ Spa ({servicesOnly.length})
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--accent-gold)" }}>
+                            Dịch vụ Spa ({servicesOnly.length})
+                          </span>
+                          {servicesOnly.length > 0 && (
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", color: "var(--text-secondary)" }}>
+                              <input
+                                type="checkbox"
+                                checked={servicesOnly.every(s => cardServices.includes(s.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const toAdd = servicesOnly.map(s => s.id).filter(id => !cardServices.includes(id));
+                                    setCardServices([...cardServices, ...toAdd]);
+                                  } else {
+                                    setCardServices(cardServices.filter(id => !servicesOnly.some(s => s.id === id)));
+                                  }
+                                }}
+                                disabled={loading}
+                              />
+                              Chọn tất cả
+                            </label>
+                          )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", paddingLeft: "0.25rem" }}>
                           {servicesOnly.length === 0 ? (
@@ -589,8 +611,28 @@ export default function SpaConfigTabs({
 
                       {/* Sản phẩm */}
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#28a745", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
-                          Sản phẩm bán lẻ ({productsOnly.length})
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.8rem", color: "#28a745" }}>
+                            Sản phẩm bán lẻ ({productsOnly.length})
+                          </span>
+                          {productsOnly.length > 0 && (
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", color: "var(--text-secondary)" }}>
+                              <input
+                                type="checkbox"
+                                checked={productsOnly.every(p => cardServices.includes(p.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const toAdd = productsOnly.map(p => p.id).filter(id => !cardServices.includes(id));
+                                    setCardServices([...cardServices, ...toAdd]);
+                                  } else {
+                                    setCardServices(cardServices.filter(id => !productsOnly.some(p => p.id === id)));
+                                  }
+                                }}
+                                disabled={loading}
+                              />
+                              Chọn tất cả
+                            </label>
+                          )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", paddingLeft: "0.25rem" }}>
                           {productsOnly.length === 0 ? (
@@ -667,8 +709,28 @@ export default function SpaConfigTabs({
                           <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.5rem", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                             {/* Dịch vụ */}
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: "0.75rem", color: "var(--accent-gold)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
-                                Dịch vụ Spa ({servicesOnly.length})
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
+                                <span style={{ fontWeight: 600, fontSize: "0.75rem", color: "var(--accent-gold)" }}>
+                                  Dịch vụ Spa ({servicesOnly.length})
+                                </span>
+                                {servicesOnly.length > 0 && (
+                                  <label style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", color: "var(--text-secondary)" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={servicesOnly.every(s => editCardServices.includes(s.id))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          const toAdd = servicesOnly.map(s => s.id).filter(id => !editCardServices.includes(id));
+                                          setEditCardServices([...editCardServices, ...toAdd]);
+                                        } else {
+                                          setEditCardServices(editCardServices.filter(id => !servicesOnly.some(s => s.id === id)));
+                                        }
+                                      }}
+                                      disabled={loading}
+                                    />
+                                    Chọn tất cả
+                                  </label>
+                                )}
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", paddingLeft: "0.2rem" }}>
                                 {servicesOnly.length === 0 ? (
@@ -697,8 +759,28 @@ export default function SpaConfigTabs({
 
                             {/* Sản phẩm */}
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: "0.75rem", color: "#28a745", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
-                                Sản phẩm bán lẻ ({productsOnly.length})
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
+                                <span style={{ fontWeight: 600, fontSize: "0.75rem", color: "#28a745" }}>
+                                  Sản phẩm bán lẻ ({productsOnly.length})
+                                </span>
+                                {productsOnly.length > 0 && (
+                                  <label style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", color: "var(--text-secondary)" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={productsOnly.every(p => editCardServices.includes(p.id))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          const toAdd = productsOnly.map(p => p.id).filter(id => !editCardServices.includes(id));
+                                          setEditCardServices([...editCardServices, ...toAdd]);
+                                        } else {
+                                          setEditCardServices(editCardServices.filter(id => !productsOnly.some(p => p.id === id)));
+                                        }
+                                      }}
+                                      disabled={loading}
+                                    />
+                                    Chọn tất cả
+                                  </label>
+                                )}
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", paddingLeft: "0.2rem" }}>
                                 {productsOnly.length === 0 ? (
