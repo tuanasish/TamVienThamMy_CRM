@@ -19,8 +19,44 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!invoice) {
       return NextResponse.json({ error: "Không tìm thấy hóa đơn" }, { status: 404 });
     }
+
+    // Check if the items have associated treatments used today
+    const dateMin = new Date(invoice.createdAt.getTime() - 10000);
+    const dateMax = new Date(invoice.createdAt.getTime() + 10000);
+
+    const itemsWithUsage = await Promise.all(invoice.items.map(async (item) => {
+      let useToday = false;
+      let technicianId = null;
+
+      if (item.itemType === "service") {
+        const treatment = await db.customerTreatment.findFirst({
+          where: {
+            customerId: invoice.customerId,
+            serviceId: item.itemId,
+            createdAt: { gte: dateMin, lte: dateMax }
+          },
+          include: {
+            usageLogs: true
+          }
+        });
+
+        if (treatment && treatment.usageLogs.length > 0) {
+          useToday = true;
+          technicianId = treatment.usageLogs[0].staffId;
+        }
+      }
+
+      return {
+        ...item,
+        useToday,
+        technicianId
+      };
+    }));
     
-    return NextResponse.json(invoice);
+    return NextResponse.json({
+      ...invoice,
+      items: itemsWithUsage
+    });
   } catch (error: any) {
     console.error("GET Single Invoice Error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống khi lấy thông tin hóa đơn" }, { status: 500 });
@@ -102,22 +138,44 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       };
 
       // Helper function to create synced treatment
-      const createSyncedTreatment = async (serviceId: string, price: number, qty: number, disc: number) => {
+      const createSyncedTreatment = async (serviceId: string, price: number, qty: number, disc: number, useToday?: boolean, technicianId?: string | null) => {
         const service = await tx.service.findUnique({
           where: { id: serviceId },
           select: { type: true }
         });
         if (service && service.type === "service") {
-          await tx.customerTreatment.create({
+          const treatment = await tx.customerTreatment.create({
             data: {
               customerId: invoice.customerId,
               serviceId,
               totalSessions: qty,
-              usedSessions: 0,
+              usedSessions: useToday ? 1 : 0,
               pricePaid: Math.max((price * qty) - disc, 0),
               createdAt: invoice.createdAt, // Match original invoice date
             }
           });
+
+          if (useToday && technicianId) {
+            const tech = await tx.staff.findUnique({
+              where: { id: technicianId },
+              select: { fullName: true }
+            });
+            const technicianName = tech?.fullName || "Nhân viên";
+
+            await tx.usageLog.create({
+              data: {
+                customerId: invoice.customerId,
+                serviceId,
+                sourceType: "treatment",
+                treatmentId: treatment.id,
+                sessionsDeducted: 1,
+                performedBy: technicianName,
+                staffId: technicianId,
+                usedAt: invoice.createdAt,
+                notes: "Sử dụng ngay khi lập hóa đơn (Cập nhật)",
+              }
+            });
+          }
         }
       };
 
@@ -195,7 +253,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
         // Grant features
         if (itm.itemType === "service" || itm.itemType === "product") {
-          await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount);
+          await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount, itm.useToday, itm.technicianId);
         } else if (itm.itemType === "card") {
           await createSyncedCard(itm.itemId);
         }
@@ -219,13 +277,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
           // Create new features
           if (itm.itemType === "service" || itm.itemType === "product") {
-            await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount);
+            await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount, itm.useToday, itm.technicianId);
           } else if (itm.itemType === "card") {
             await createSyncedCard(itm.itemId);
           }
         } 
-        // Scenario 5.2: Same itemId but changed price/quantity/discount
-        else if (itemPrice !== Number(oldItm.price) || itemQty !== oldItm.quantity || itemDiscount !== Number(oldItm.discount)) {
+        // Scenario 5.2: Same itemId or changed price/quantity/discount/useToday/technicianId
+        else {
           if (itm.itemType === "service" || itm.itemType === "product") {
             // Find and update synced customer treatment
             const treatment = await tx.customerTreatment.findFirst({
@@ -241,8 +299,52 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                 data: {
                   totalSessions: itemQty,
                   pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
+                  usedSessions: itm.useToday ? 1 : 0,
                 }
               });
+
+              // Handle immediate service usage (UsageLog)
+              const existingLog = await tx.usageLog.findFirst({
+                where: { treatmentId: treatment.id }
+              });
+
+              if (itm.useToday) {
+                const tech = await tx.staff.findUnique({
+                  where: { id: itm.technicianId },
+                  select: { fullName: true }
+                });
+                const technicianName = tech?.fullName || "Nhân viên";
+
+                if (existingLog) {
+                  await tx.usageLog.update({
+                    where: { id: existingLog.id },
+                    data: {
+                      performedBy: technicianName,
+                      staffId: itm.technicianId,
+                    }
+                  });
+                } else {
+                  await tx.usageLog.create({
+                    data: {
+                      customerId: invoice.customerId,
+                      serviceId: itm.itemId,
+                      sourceType: "treatment",
+                      treatmentId: treatment.id,
+                      sessionsDeducted: 1,
+                      performedBy: technicianName,
+                      staffId: itm.technicianId,
+                      usedAt: invoice.createdAt,
+                      notes: "Sử dụng ngay khi lập hóa đơn (Cập nhật)",
+                    }
+                  });
+                }
+              } else {
+                if (existingLog) {
+                  await tx.usageLog.delete({
+                    where: { id: existingLog.id }
+                  });
+                }
+              }
             }
           } else if (itm.itemType === "card") {
             // Find and update synced customer card

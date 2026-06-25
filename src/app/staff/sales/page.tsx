@@ -4,7 +4,7 @@ import styles from "./page.module.css";
 import SalesDashboard from "@/components/SalesDashboard";
 
 export const metadata = {
-  title: "Bàn làm việc bán hàng & Lịch hẹn - Spa CRM",
+  title: "Quầy bán hàng & Điều phối - Spa CRM",
 };
 
 export const dynamic = "force-dynamic";
@@ -81,26 +81,7 @@ export default async function SalesPage({ searchParams }: PageProps) {
     orderBy: { fullName: "asc" },
   });
 
-  const appointmentsPromise = db.appointment.findMany({
-    where: {
-      dateTime: {
-        gte: startRange,
-        lte: endRange,
-      },
-    },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          fullName: true,
-          phone: true,
-        },
-      },
-    },
-    orderBy: {
-      dateTime: "asc",
-    },
-  });
+
 
   const invoicesPromise = db.invoice.findMany({
     where: {
@@ -158,12 +139,11 @@ export default async function SalesPage({ searchParams }: PageProps) {
     },
   });
 
-  const [customers, services, cardTemplates, staff, appointments, invoices, usageLogs] = await Promise.all([
+  const [customers, services, cardTemplates, staff, invoices, usageLogs] = await Promise.all([
     customersPromise,
     servicesPromise,
     cardTemplatesPromise,
     staffPromise,
-    appointmentsPromise,
     invoicesPromise,
     usageLogsPromise,
   ]);
@@ -195,18 +175,7 @@ export default async function SalesPage({ searchParams }: PageProps) {
     fullName: st.fullName,
   }));
 
-  const mappedAppointments = appointments.map((appt) => ({
-    id: appt.id,
-    customerId: appt.customerId,
-    customer: {
-      id: appt.customer.id,
-      fullName: appt.customer.fullName,
-      phone: appt.customer.phone,
-    },
-    dateTime: appt.dateTime.toISOString(),
-    status: appt.status,
-    notes: appt.notes,
-  }));
+
 
   const mappedInvoices = invoices.map((inv) => ({
     id: inv.id,
@@ -267,7 +236,6 @@ export default async function SalesPage({ searchParams }: PageProps) {
         services={mappedServices}
         cardTemplates={mappedCardTemplates}
         staff={mappedStaff}
-        initialAppointments={mappedAppointments}
         initialInvoices={mappedInvoices}
         initialUsageLogs={mappedUsageLogs}
         activeFilter={filter}

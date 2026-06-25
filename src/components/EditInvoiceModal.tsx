@@ -42,6 +42,8 @@ interface EditableItem {
   discount: string; // localized string format
   staffId: string;
   saleStaffIds: string[];
+  useToday?: boolean;
+  technicianId?: string;
 }
 
 export default function EditInvoiceModal({
@@ -245,6 +247,8 @@ export default function EditInvoiceModal({
             discount: formatMoneyInput(itm.discount.toString()),
             staffId: itm.staffId || "",
             saleStaffIds: selectedStaffIds,
+            useToday: itm.useToday || false,
+            technicianId: itm.technicianId || "",
           };
         })
       );
@@ -390,6 +394,8 @@ export default function EditInvoiceModal({
       discount: "0",
       staffId: staffId || (staff[0]?.id || ""),
       saleStaffIds: staffId ? [staffId] : (staff[0]?.id ? [staff[0].id] : []),
+      useToday: false,
+      technicianId: "",
     };
     setEditItems([...editItems, newItem]);
   };
@@ -457,6 +463,8 @@ export default function EditInvoiceModal({
             discount: Number(parseMoneyInput(itm.discount)),
             staffId: (itm.saleStaffIds?.[0] ? itm.saleStaffIds[0].split(":")[0] : null) || itm.staffId || null,
             saleStaffIds: itm.saleStaffIds || [],
+            useToday: itm.useToday || false,
+            technicianId: itm.technicianId || null,
           })),
         }),
       });
@@ -744,6 +752,65 @@ export default function EditInvoiceModal({
                               Thành tiền: <strong style={{ color: "var(--text-primary)" }}>{itemSubtotal.toLocaleString("vi-VN")}đ</strong>
                             </span>
                           </div>
+
+                          {/* Dùng luôn hôm nay (Chỉ áp dụng cho Dịch vụ) */}
+                          {item.itemType === "service" && (
+                            <div style={{
+                              marginTop: "0.5rem",
+                              padding: "0.5rem",
+                              background: "rgba(197, 160, 89, 0.05)",
+                              border: "1px solid rgba(197, 160, 89, 0.2)",
+                              borderRadius: "6px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.35rem"
+                            }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", cursor: "pointer" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={item.useToday || false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setEditItems(editItems.map(itm => {
+                                      if (itm.id === item.id) {
+                                        return {
+                                          ...itm,
+                                          useToday: checked,
+                                          technicianId: checked ? (itm.technicianId || (staff[0]?.id || "")) : ""
+                                        };
+                                      }
+                                      return itm;
+                                    }));
+                                  }}
+                                  style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
+                                />
+                                <span>Khách sử dụng dịch vụ luôn hôm nay?</span>
+                              </label>
+
+                              {item.useToday && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.15rem" }}>
+                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: 600 }}>KTV thực hiện:</span>
+                                  <select
+                                    className={styles.select}
+                                    style={{ height: "24px", fontSize: "0.72rem", padding: "2px 6px", width: "auto", minWidth: "120px" }}
+                                    value={item.technicianId || ""}
+                                    onChange={(e) => {
+                                      const techId = e.target.value;
+                                      setEditItems(editItems.map(itm => itm.id === item.id ? { ...itm, technicianId: techId } : itm));
+                                    }}
+                                    required={item.useToday}
+                                  >
+                                    <option value="">-- Chọn KTV --</option>
+                                    {staff.map((st) => (
+                                      <option key={st.id} value={st.id}>
+                                        {st.fullName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Chọn nhân viên tư vấn */}
                           <div style={{ marginTop: "0.4rem", display: "flex", flexDirection: "column", gap: "0.15rem" }}>
