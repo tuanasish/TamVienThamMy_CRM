@@ -7,6 +7,7 @@ import ConvertPackageModal from "@/components/ConvertPackageModal";
 import EditCustomerModal from "@/components/EditCustomerModal";
 import DeleteCustomerButton from "@/components/DeleteCustomerButton";
 import CreateInvoiceModal from "@/components/CreateInvoiceModal";
+import ExchangeServiceModal from "@/components/ExchangeServiceModal";
 import { ArrowLeft, User, Phone, MapPin, Calendar, CreditCard, Activity, Receipt, FileText } from "lucide-react";
 import CustomerInvoicesList from "@/components/CustomerInvoicesList";
 
@@ -282,6 +283,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
             {customer.treatments.map((treatment) => {
               const progress = Math.round((treatment.usedSessions / treatment.totalSessions) * 100);
+              const remainingSessions = treatment.totalSessions - treatment.usedSessions;
               return (
                 <div key={treatment.id} className={styles.walletCard} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div>
@@ -289,9 +291,24 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                       Giá mua: <strong>{formatVND(treatment.pricePaid)}</strong>
                     </div>
+                    {remainingSessions > 0 && (
+                      <ExchangeServiceModal
+                        customerId={customer.id}
+                        customerName={customer.fullName}
+                        treatment={{
+                          id: treatment.id,
+                          usedSessions: treatment.usedSessions,
+                          totalSessions: treatment.totalSessions,
+                          pricePaid: Number(treatment.pricePaid),
+                          service: { id: treatment.service.id, name: treatment.service.name },
+                        }}
+                        services={parsedServices}
+                        staffMembers={parsedStaff}
+                      />
+                    )}
                   </div>
 
-                  <div className={styles.progressContainer}>
+                  <div className={styles.progressContainer} style={{ marginTop: "1rem" }}>
                     <div className={styles.progressLabel}>
                       <span>Tiến trình sử dụng:</span>
                       <strong>{treatment.usedSessions}/{treatment.totalSessions} buổi</strong>
