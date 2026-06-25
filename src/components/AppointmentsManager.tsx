@@ -124,10 +124,8 @@ export default function AppointmentsManager({
   const [editTime, setEditTime] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  // Filter active appointments only (pending and checked_in)
-  const activeAppointments = appointments.filter(
-    (appt) => appt.status === "pending" || appt.status === "checked_in"
-  );
+  // Display all appointments (pending, checked_in, completed, cancelled)
+  const activeAppointments = appointments;
 
   // Search/Filter matching
   const filteredAppointments = activeAppointments.filter((appt) => {
@@ -502,13 +500,24 @@ export default function AppointmentsManager({
                     <td className={styles.td}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                         <div style={{ fontWeight: 600 }}>{appt.customer.fullName}</div>
-                        {appt.status === "checked_in" ? (
+                        {appt.status === "checked_in" && (
                           <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(45, 122, 96, 0.15)", color: "#2d7a60", fontWeight: "bold" }}>
                             Đã đến
                           </span>
-                        ) : (
+                        )}
+                        {appt.status === "pending" && (
                           <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(255, 193, 7, 0.15)", color: "#b38b36", fontWeight: "bold" }}>
                             Chờ
+                          </span>
+                        )}
+                        {appt.status === "completed" && (
+                          <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(40, 167, 69, 0.15)", color: "#28a745", fontWeight: "bold" }}>
+                            Hoàn tất
+                          </span>
+                        )}
+                        {appt.status === "cancelled" && (
+                          <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(220, 53, 69, 0.15)", color: "#dc3545", fontWeight: "bold" }}>
+                            Đã hủy
                           </span>
                         )}
                       </div>
@@ -549,15 +558,17 @@ export default function AppointmentsManager({
                           </button>
                         )}
 
-                        <button
-                          onClick={() => openEditModal(appt)}
-                          disabled={loading}
-                          className={`${styles.actionBtn}`}
-                          style={{ background: "transparent", color: "var(--accent-gold)", borderColor: "var(--border-color)" }}
-                          title="Đổi lịch / Sửa ghi chú"
-                        >
-                          <Edit2 size={14} /> Đổi lịch
-                        </button>
+                        {(appt.status === "pending" || appt.status === "checked_in") && (
+                          <button
+                            onClick={() => openEditModal(appt)}
+                            disabled={loading}
+                            className={`${styles.actionBtn}`}
+                            style={{ background: "transparent", color: "var(--accent-gold)", borderColor: "var(--border-color)" }}
+                            title="Đổi lịch / Sửa ghi chú"
+                          >
+                            <Edit2 size={14} /> Đổi lịch
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleDelete(appt.id)}

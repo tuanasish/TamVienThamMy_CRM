@@ -190,6 +190,67 @@ export default function SalesDashboard({
     }
   };
 
+
+
+  // Group invoices and usage logs by customer to display them in a unified table
+  const combinedActivities = (() => {
+    const map = new Map<string, {
+      customerId: string;
+      customerName: string;
+      customerPhone: string;
+      invoices: InvoiceProp[];
+      usageLogs: UsageLogProp[];
+    }>();
+
+    // Group invoices
+    invoices.forEach((inv) => {
+      const cid = inv.customerId;
+      if (!map.has(cid)) {
+        map.set(cid, {
+          customerId: cid,
+          customerName: inv.customer.fullName,
+          customerPhone: inv.customer.phone,
+          invoices: [],
+          usageLogs: [],
+        });
+      }
+      map.get(cid)!.invoices.push(inv);
+    });
+
+    // Group usage logs
+    usageLogs.forEach((log) => {
+      const cid = log.customerId;
+      if (!map.has(cid)) {
+        map.set(cid, {
+          customerId: cid,
+          customerName: log.customerName,
+          customerPhone: log.customerPhone,
+          invoices: [],
+          usageLogs: [],
+        });
+      }
+      map.get(cid)!.usageLogs.push(log);
+    });
+
+    // Convert to array and determine the latest activity time for sorting
+    return Array.from(map.values()).map((act) => {
+      let latestTime = new Date(0);
+      act.invoices.forEach((inv) => {
+        const d = new Date(inv.createdAt);
+        if (d > latestTime) latestTime = d;
+      });
+      act.usageLogs.forEach((log) => {
+        const d = new Date(log.usedAt);
+        if (d > latestTime) latestTime = d;
+      });
+
+      return {
+        ...act,
+        latestTime,
+      };
+    }).sort((a, b) => b.latestTime.getTime() - a.latestTime.getTime());
+  })();
+
   return (
     <div className={styles.dashboardContainer}>
       {error && (
@@ -331,191 +392,171 @@ export default function SalesDashboard({
         </form>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* TODAY'S SALES INVOICES */}
-        <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>
-            <CreditCard size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-            Hóa đơn bán hàng cấp mới ({invoices.length})
-          </h3>
+      {/* UNIFIED INTEGRATED SALES & SERVICE USAGES TABLE */}
+      <div className={styles.sectionCard} style={{ marginTop: "1rem" }}>
+        <h3 className={styles.sectionTitle}>
+          <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
+          Nhật ký hoạt động trong ngày (Khách mua & Sử dụng dịch vụ)
+        </h3>
 
-          <div style={{ overflowX: "auto", marginTop: "1rem" }}>
-            {invoices.length === 0 ? (
-              <div className={styles.emptyText}>Chưa ghi nhận hóa đơn bán lẻ nào trong thời gian này.</div>
-            ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Khách hàng</th>
-                    <th>Mặt hàng mua</th>
-                    <th style={{ textAlign: "right" }}>Thanh toán</th>
-                    <th style={{ textAlign: "right" }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <User size={14} style={{ color: "var(--text-secondary)" }} />
+        <div style={{ overflowX: "auto", marginTop: "1rem" }}>
+          {combinedActivities.length === 0 ? (
+            <div className={styles.emptyText}>Chưa ghi nhận hoạt động giao dịch hay sử dụng dịch vụ nào trong thời gian này.</div>
+          ) : (
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ width: "220px" }}>Khách hàng & Thời gian</th>
+                  <th>Hóa đơn mua mới</th>
+                  <th>Dịch vụ sử dụng</th>
+                  <th style={{ textAlign: "right", width: "160px" }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {combinedActivities.map((act) => {
+                  const formattedTime = act.latestTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+                  const formattedDate = act.latestTime.toLocaleDateString("vi-VN");
+                  
+                  return (
+                    <tr key={act.customerId}>
+                      {/* Customer Info & Time */}
+                      <td style={{ verticalAlign: "top" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                          <User size={16} style={{ color: "var(--text-secondary)", marginTop: "0.2rem" }} />
                           <div>
-                            <div style={{ fontWeight: 600 }}>{inv.customer.fullName}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{inv.customer.phone}</div>
+                            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>{act.customerName}</div>
+                            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.1rem" }}>{act.customerPhone}</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--accent-gold)", fontWeight: "600", marginTop: "0.35rem" }}>
+                              Gần nhất: {formattedTime} ({formattedDate})
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <div className={styles.salesItemList}>
-                          {inv.items.map((item) => {
-                            const itemPrice = Number(item.price);
-                            const itemDisc = Number(item.discount || 0);
-                            const subtotal = Math.max((itemPrice * item.quantity) - itemDisc, 0);
-                            return (
-                              <div key={item.id} className={styles.salesItemTag}>
-                                • {getItemName(item.itemType, item.itemId)}{" "}
-                                <span style={{ color: "var(--text-secondary)" }}>
-                                  (x{item.quantity})
-                                </span>
-                                <span style={{ marginLeft: "0.25rem", fontWeight: 600, color: "var(--accent-gold)" }}>
-                                  - {subtotal.toLocaleString("vi-VN")}đ
-                                </span>
+
+                      {/* Purchased Invoices */}
+                      <td style={{ verticalAlign: "top" }}>
+                        {act.invoices.length === 0 ? (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem", fontStyle: "italic" }}>(Không mua mới)</span>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            {act.invoices.map((inv) => (
+                              <div key={inv.id} style={{ padding: "0.5rem 0.75rem", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)" }}>
+                                <div className={styles.salesItemList}>
+                                  {inv.items.map((item) => {
+                                    const itemPrice = Number(item.price);
+                                    const itemDisc = Number(item.discount || 0);
+                                    const subtotal = Math.max((itemPrice * item.quantity) - itemDisc, 0);
+                                    return (
+                                      <div key={item.id} className={styles.salesItemTag} style={{ fontSize: "0.85rem" }}>
+                                        • {getItemName(item.itemType, item.itemId)}{" "}
+                                        <span style={{ color: "var(--text-secondary)" }}>
+                                          (x{item.quantity})
+                                        </span>
+                                        <span style={{ marginLeft: "0.25rem", fontWeight: 600, color: "var(--accent-gold)" }}>
+                                          - {subtotal.toLocaleString("vi-VN")}đ
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed var(--border-color)", paddingTop: "0.35rem", marginTop: "0.35rem", fontSize: "0.8rem" }}>
+                                  <span style={{ fontWeight: 700, color: "var(--accent-gold)" }}>
+                                    Tổng: {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
+                                  </span>
+                                  <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: "500", background: "var(--bg-secondary)", padding: "0.1rem 0.35rem", borderRadius: "3px" }}>
+                                    {(() => {
+                                      const cash = Number(inv.paidAmountCash || 0);
+                                      const transfer = Number(inv.paidAmountTransfer || 0);
+                                      const hc = Number(inv.paidAmountHomeCredit || 0);
+                                      const ma = Number(inv.paidAmountMiraeAsset || 0);
+                                      const debt = Number(inv.paidAmountDebt || 0);
+                                      const parts = [];
+                                      if (cash > 0) parts.push(`Mặt`);
+                                      if (transfer > 0) parts.push(`CK`);
+                                      if (hc > 0) parts.push(`Home`);
+                                      if (ma > 0) parts.push(`Mirae`);
+                                      if (debt > 0) parts.push(`Nợ`);
+                                      return parts.join("+") || (inv.paymentType === "installment" ? "Trả góp" : "Khác");
+                                    })()}
+                                  </span>
+                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: "700", color: "var(--accent-gold)" }}>
-                          {Number(inv.finalAmount).toLocaleString("vi-VN")}đ
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
-                          {(() => {
-                            const cash = Number(inv.paidAmountCash || 0);
-                            const transfer = Number(inv.paidAmountTransfer || 0);
-                            const hc = Number(inv.paidAmountHomeCredit || 0);
-                            const ma = Number(inv.paidAmountMiraeAsset || 0);
-                            const debt = Number(inv.paidAmountDebt || 0);
 
-                            const parts = [];
-                            if (cash > 0) parts.push(`Mặt: ${cash.toLocaleString("vi-VN")}đ`);
-                            if (transfer > 0) parts.push(`CK: ${transfer.toLocaleString("vi-VN")}đ`);
-                            if (hc > 0) parts.push(`Home: ${hc.toLocaleString("vi-VN")}đ`);
-                            if (ma > 0) parts.push(`Mirae: ${ma.toLocaleString("vi-VN")}đ`);
-                            if (debt > 0) parts.push(`Nợ: ${debt.toLocaleString("vi-VN")}đ`);
-
-                            if (parts.length === 0) {
-                              return inv.paymentType === "installment"
-                                ? `Trả góp: ${
-                                    inv.installmentType === "home_credit"
-                                      ? "Home Credit"
-                                      : inv.installmentType === "mirae_asset"
-                                      ? "Mirae Asset"
-                                      : "Tại quầy"
-                                  }`
-                                : "Tiền mặt";
-                            }
-                            return parts.join(" | ");
-                          })()}
-                        </div>
+                      {/* Service Usages */}
+                      <td style={{ verticalAlign: "top" }}>
+                        {act.usageLogs.length === 0 ? (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem", fontStyle: "italic" }}>(Không sử dụng)</span>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            {act.usageLogs.map((log) => (
+                              <div key={log.id} style={{ padding: "0.5rem 0.75rem", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)", fontSize: "0.85rem" }}>
+                                <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{log.serviceName}</div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.25rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                  <span>
+                                    Trực tiếp trừ: {log.sourceType === "card" ? (
+                                      <span style={{ color: "var(--accent-gold)", fontWeight: "700" }}>
+                                        {log.amountDeducted.toLocaleString("vi-VN")}đ
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: "var(--accent-rose)", fontWeight: "700" }}>
+                                        {log.sessionsDeducted} buổi
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span>KTV: <strong style={{ color: "var(--text-primary)" }}>{log.performedBy}</strong></span>
+                                </div>
+                                {log.notes && (
+                                  <div style={{ fontSize: "0.75rem", color: "var(--accent-gold)", fontStyle: "italic", marginTop: "0.2rem", borderTop: "1px dashed var(--border-color)", paddingTop: "0.15rem" }}>
+                                    "{log.notes}"
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                          <EditInvoiceModal
-                            invoice={inv}
-                            services={services}
-                            cardTemplates={cardTemplates}
-                            staff={staff}
-                            onSuccess={handleInvoiceSuccess}
-                          />
-                          <button
-                            onClick={() => handleDeleteInvoice(inv.id)}
-                            disabled={loading}
-                            className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
-                            title="Xóa hóa đơn"
-                          >
-                            <Trash2 size={14} /> Xóa
-                          </button>
-                        </div>
+
+                      {/* Actions */}
+                      <td style={{ textAlign: "right", verticalAlign: "top" }}>
+                        {act.invoices.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "flex-end" }}>
+                            {act.invoices.map((inv) => (
+                              <div key={inv.id} style={{ display: "flex", gap: "0.35rem" }}>
+                                <EditInvoiceModal
+                                  invoice={inv}
+                                  services={services}
+                                  cardTemplates={cardTemplates}
+                                  staff={staff}
+                                  onSuccess={handleInvoiceSuccess}
+                                />
+                                <button
+                                  onClick={() => handleDeleteInvoice(inv.id)}
+                                  disabled={loading}
+                                  className={`${styles.actionBtnSmall} ${styles.btnDangerOutline}`}
+                                  style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
+                                  title="Xóa hóa đơn"
+                                >
+                                  <Trash2 size={12} /> Xóa
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.78rem", fontStyle: "italic" }}>Ghi nhận từ thẻ/liệu trình</span>
+                        )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        {/* TODAY'S SERVICE USAGES */}
-        <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>
-            <Activity size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle" }} />
-            Nhật ký khách hàng dùng dịch vụ ({usageLogs.length})
-          </h3>
-
-          <div style={{ overflowX: "auto", marginTop: "1rem" }}>
-            {usageLogs.length === 0 ? (
-              <div className={styles.emptyText}>Chưa ghi nhận lượt khách sử dụng dịch vụ nào trong thời gian này.</div>
-            ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Khách hàng</th>
-                    <th>Dịch vụ sử dụng</th>
-                    <th>Hình thức trừ</th>
-                    <th>Nhân sự thực hiện</th>
-                    <th style={{ textAlign: "right" }}>Thời gian</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usageLogs.map((log) => {
-                    const logDate = new Date(log.usedAt);
-                    return (
-                      <tr key={log.id}>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{log.customerName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{log.customerPhone}</div>
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{log.serviceName}</div>
-                          {log.notes && (
-                            <div style={{ fontSize: "0.75rem", color: "var(--accent-gold)", fontStyle: "italic", marginTop: "0.15rem" }}>
-                              "{log.notes}"
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          {log.sourceType === "card" ? (
-                            <span style={{ color: "var(--accent-gold)", fontWeight: "700" }}>
-                              -{log.amountDeducted.toLocaleString("vi-VN")}đ
-                            </span>
-                          ) : (
-                            <span style={{ color: "var(--accent-rose)", fontWeight: "700" }}>
-                              -{log.sessionsDeducted} buổi
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 500 }}>{log.performedBy} (KTV)</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Ghi nhận: {log.staffName}</div>
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: "700" }}>
-                            {logDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                          </div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
-                            {logDate.toLocaleDateString("vi-VN")}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
-
     </div>
   );
 }
