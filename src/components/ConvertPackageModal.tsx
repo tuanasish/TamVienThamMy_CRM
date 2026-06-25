@@ -347,7 +347,8 @@ export default function ConvertPackageModal({
             quantity: itm.quantity,
             totalSessions: itm.itemType === "service" ? itm.totalSessions : undefined,
             discount: Number(parseMoneyInput(itm.discount || "0")) || 0,
-            saleStaffIds: itm.saleStaffIds,
+            staffId: itm.saleStaffIds?.[0] ? itm.saleStaffIds[0].split(":")[0] : null,
+            saleStaffIds: itm.saleStaffIds || [],
           })),
         }),
       });
@@ -721,21 +722,72 @@ export default function ConvertPackageModal({
                             <td className={styles.td}>
                               {/* Multiple sale checkboxes */}
                               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", maxHeight: "80px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.35rem", borderRadius: "4px" }}>
-                                {staffMembers.map((st) => (
-                                  <label key={st.id} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", background: "var(--bg-secondary)", padding: "0.15rem 0.4rem", borderRadius: "3px", fontSize: "0.75rem", border: item.saleStaffIds.includes(st.id) ? "1px solid var(--accent-gold)" : "1px solid transparent", cursor: "pointer" }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={item.saleStaffIds.includes(st.id)}
-                                      onChange={(e) => {
-                                        const updatedIds = e.target.checked
-                                          ? [...item.saleStaffIds, st.id]
-                                          : item.saleStaffIds.filter((id) => id !== st.id);
-                                        handleItemStaffsChange(item.id, item.itemType, updatedIds);
-                                      }}
-                                    />
-                                    {st.fullName}
-                                  </label>
-                                ))}
+                                {staffMembers.map((st) => {
+                                  const isChecked = (item.saleStaffIds || []).some(id => id === st.id || id.startsWith(st.id + ":"));
+                                  return (
+                                    <label key={st.id} style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "0.25rem",
+                                      background: isChecked ? "rgba(212, 175, 55, 0.1)" : "var(--bg-secondary)",
+                                      padding: "0.15rem 0.4rem",
+                                      borderRadius: "3px",
+                                      fontSize: "0.75rem",
+                                      border: isChecked ? "1px solid var(--accent-gold)" : "1px solid transparent",
+                                      color: isChecked ? "var(--accent-gold)" : "var(--text-primary)",
+                                      fontWeight: isChecked ? 600 : 400,
+                                      cursor: "pointer"
+                                    }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
+                                          if (e.target.checked) {
+                                            newIds.push(st.id);
+                                          }
+                                          handleItemStaffsChange(item.id, item.itemType, newIds);
+                                        }}
+                                        style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
+                                      />
+                                      <span>{st.fullName}</span>
+                                      {isChecked && (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          placeholder="%"
+                                          value={(() => {
+                                            const match = item.saleStaffIds?.find(id => id.startsWith(st.id + ":"));
+                                            return match ? match.split(":")[1] || "" : "";
+                                          })()}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
+                                            if (val === "") {
+                                              newIds.push(st.id);
+                                            } else {
+                                              newIds.push(`${st.id}:${val}`);
+                                            }
+                                            handleItemStaffsChange(item.id, item.itemType, newIds);
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{
+                                            width: "42px",
+                                            marginLeft: "2px",
+                                            padding: "2px 0",
+                                            fontSize: "0.72rem",
+                                            borderRadius: "3px",
+                                            border: "1px solid var(--border-color)",
+                                            background: "var(--bg-secondary)",
+                                            color: "var(--text-primary)",
+                                            textAlign: "center"
+                                          }}
+                                        />
+                                      )}
+                                    </label>
+                                  );
+                                })}
                               </div>
                             </td>
                             <td className={styles.td}>

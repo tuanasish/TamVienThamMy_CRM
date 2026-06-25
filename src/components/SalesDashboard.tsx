@@ -152,6 +152,9 @@ export default function SalesDashboard({
   const [newApptDate, setNewApptDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
   const [newApptTime, setNewApptTime] = useState("09:00");
   const [newApptNotes, setNewApptNotes] = useState("");
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -243,16 +246,40 @@ export default function SalesDashboard({
       setError("Vui lòng chọn khách hàng, ngày hẹn và giờ hẹn");
       return;
     }
+    if (isNewCustomer && (!newCustomerName || !newCustomerPhone)) {
+      setError("Vui lòng nhập đầy đủ tên và số điện thoại của khách hàng mới");
+      return;
+    }
 
     setLoading(true);
     setError("");
     try {
+      let finalCustomerId = newApptCustomer;
+
+      // 1. If it's a new customer, register them first
+      if (isNewCustomer) {
+        const custResponse = await fetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: newCustomerName,
+            phone: newCustomerPhone,
+          }),
+        });
+        const custData = await custResponse.json();
+        if (!custResponse.ok) {
+          throw new Error(custData.error || "Không thể tạo hồ sơ khách hàng mới");
+        }
+        finalCustomerId = custData.id;
+      }
+
+      // 2. Create the appointment
       const dateTime = `${newApptDate}T${newApptTime}`;
       const response = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: newApptCustomer,
+          customerId: finalCustomerId,
           dateTime,
           notes: newApptNotes,
         }),
@@ -264,6 +291,9 @@ export default function SalesDashboard({
       setNewApptDate(new Date().toLocaleDateString("sv-SE"));
       setNewApptTime("09:00");
       setNewApptNotes("");
+      setIsNewCustomer(false);
+      setNewCustomerName("");
+      setNewCustomerPhone("");
       setShowAppointmentModal(false);
       
       router.refresh();
@@ -465,6 +495,10 @@ export default function SalesDashboard({
                 setNewApptCustomer("");
                 setNewApptDate(new Date().toLocaleDateString("sv-SE"));
                 setNewApptTime("09:00");
+                setNewApptNotes("");
+                setIsNewCustomer(false);
+                setNewCustomerName("");
+                setNewCustomerPhone("");
                 setShowAppointmentModal(true);
               }} 
               className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
@@ -780,22 +814,69 @@ export default function SalesDashboard({
             </div>
             
             <form onSubmit={handleQuickBook} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Khách hàng *</label>
-                <select
-                  className={styles.select}
-                  value={newApptCustomer}
-                  onChange={(e) => setNewApptCustomer(e.target.value)}
-                  required
-                >
-                  <option value="">-- Chọn khách hàng --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} ({c.phone})
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                <input
+                  type="checkbox"
+                  id="isNewCustomerCheckbox"
+                  checked={isNewCustomer}
+                  onChange={(e) => {
+                    setIsNewCustomer(e.target.checked);
+                    if (e.target.checked) {
+                      setNewApptCustomer("new-customer-placeholder");
+                    } else {
+                      setNewApptCustomer("");
+                    }
+                  }}
+                  style={{ width: "16px", height: "16px", accentColor: "var(--accent-gold)", cursor: "pointer" }}
+                />
+                <label htmlFor="isNewCustomerCheckbox" style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--accent-gold)", cursor: "pointer" }}>
+                  Khách hàng mới (chưa có hồ sơ)?
+                </label>
               </div>
+
+              {isNewCustomer ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Họ và Tên *</label>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      placeholder="Nguyễn Vy"
+                      value={newCustomerName}
+                      onChange={(e) => setNewCustomerName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Số điện thoại *</label>
+                    <input
+                      type="tel"
+                      className={styles.input}
+                      placeholder="0912345678"
+                      value={newCustomerPhone}
+                      onChange={(e) => setNewCustomerPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Khách hàng *</label>
+                  <select
+                    className={styles.select}
+                    value={newApptCustomer}
+                    onChange={(e) => setNewApptCustomer(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Chọn khách hàng --</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fullName} ({c.phone})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div className={styles.formGroup}>

@@ -412,7 +412,7 @@ export default function EditInvoiceModal({
           items: editItems.map((itm) => ({
             id: itm.id,
             discount: Number(parseMoneyInput(itm.discount)),
-            staffId: itm.saleStaffIds?.[0] || itm.staffId || null,
+            staffId: (itm.saleStaffIds?.[0] ? itm.saleStaffIds[0].split(":")[0] : null) || itm.staffId || null,
             saleStaffIds: itm.saleStaffIds || [],
           })),
         }),
@@ -533,7 +533,7 @@ export default function EditInvoiceModal({
                           />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", flex: "1 1 auto", width: "100%" }}>
-                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>Sale/NV (chọn nhiều):</label>
+                          <label style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600, whiteSpace: "nowrap" }}>Sale/NV (chọn nhiều, nhập % nếu chia không đều):</label>
                           <div style={{
                             display: "flex",
                             flexWrap: "wrap",
@@ -547,7 +547,7 @@ export default function EditInvoiceModal({
                             width: "100%"
                           }}>
                             {staff.map((st) => {
-                              const isChecked = item.saleStaffIds?.includes(st.id);
+                              const isChecked = (item.saleStaffIds || []).some(id => id === st.id || id.startsWith(st.id + ":"));
                               return (
                                 <label key={st.id} style={{
                                   display: "flex",
@@ -566,17 +566,49 @@ export default function EditInvoiceModal({
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={(e) => {
-                                      let newIds = [...(item.saleStaffIds || [])];
+                                      let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
                                       if (e.target.checked) {
-                                        if (!newIds.includes(st.id)) newIds.push(st.id);
-                                      } else {
-                                        newIds = newIds.filter(id => id !== st.id);
+                                        newIds.push(st.id);
                                       }
                                       handleItemStaffsChange(item.id, newIds);
                                     }}
                                     style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
                                   />
-                                  {st.fullName}
+                                  <span>{st.fullName}</span>
+                                  {isChecked && (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      placeholder="%"
+                                      value={(() => {
+                                        const match = item.saleStaffIds?.find(id => id.startsWith(st.id + ":"));
+                                        return match ? match.split(":")[1] || "" : "";
+                                      })()}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
+                                        if (val === "") {
+                                          newIds.push(st.id);
+                                        } else {
+                                          newIds.push(`${st.id}:${val}`);
+                                        }
+                                        handleItemStaffsChange(item.id, newIds);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{
+                                        width: "42px",
+                                        marginLeft: "2px",
+                                        padding: "2px 0",
+                                        fontSize: "0.72rem",
+                                        borderRadius: "3px",
+                                        border: "1px solid var(--border-color)",
+                                        background: "var(--bg-secondary)",
+                                        color: "var(--text-primary)",
+                                        textAlign: "center"
+                                      }}
+                                    />
+                                  )}
                                 </label>
                               );
                             })}

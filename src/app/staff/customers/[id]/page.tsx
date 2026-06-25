@@ -6,6 +6,7 @@ import RecordUsageModal from "@/components/RecordUsageModal";
 import ConvertPackageModal from "@/components/ConvertPackageModal";
 import EditCustomerModal from "@/components/EditCustomerModal";
 import DeleteCustomerButton from "@/components/DeleteCustomerButton";
+import CreateInvoiceModal from "@/components/CreateInvoiceModal";
 import { ArrowLeft, User, Phone, MapPin, Calendar, CreditCard, Activity, Receipt, FileText } from "lucide-react";
 import CustomerInvoicesList from "@/components/CustomerInvoicesList";
 
@@ -195,6 +196,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
         {/* Actions section */}
         <div className={styles.actionsSection} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", alignSelf: "center" }}>
+          <CreateInvoiceModal
+            customer={{
+              id: customer.id,
+              fullName: customer.fullName,
+              phone: customer.phone,
+              tier: customer.tier,
+            }}
+            services={parsedServices}
+            cardTemplates={parsedCardTemplates}
+            staff={parsedStaff}
+          />
           <RecordUsageModal
             customerId={customer.id}
             cards={parsedCards}

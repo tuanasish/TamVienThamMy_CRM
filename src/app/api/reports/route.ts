@@ -54,14 +54,32 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
     }
 
     if (selectedStaffIds.length > 0) {
-      const splitShare = itemShare / selectedStaffIds.length;
-      selectedStaffIds.forEach((staffId) => {
-        if (!saleDoanhSo[staffId]) {
-          const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
-          saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
-        }
-        saleDoanhSo[staffId].totalSales += splitShare;
-      });
+      // Check if any ID contains a percentage colon
+      const hasPercentages = selectedStaffIds.some((id) => id.includes(":"));
+
+      if (hasPercentages) {
+        selectedStaffIds.forEach((item) => {
+          const parts = item.split(":");
+          const staffId = parts[0];
+          const percent = parts[1] ? Number(parts[1]) : (100 / selectedStaffIds.length);
+          const splitShare = itemShare * (percent / 100);
+
+          if (!saleDoanhSo[staffId]) {
+            const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+          }
+          saleDoanhSo[staffId].totalSales += splitShare;
+        });
+      } else {
+        const splitShare = itemShare / selectedStaffIds.length;
+        selectedStaffIds.forEach((staffId) => {
+          if (!saleDoanhSo[staffId]) {
+            const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+          }
+          saleDoanhSo[staffId].totalSales += splitShare;
+        });
+      }
     }
   });
 }
