@@ -981,7 +981,7 @@ export default function SalesDashboard({
       {/* DIALOG 3: CHECK-IN SUCCESS MODAL */}
       {showCheckInSuccessModal && checkInSuccessAppt && (
         <div className={styles.modalOverlay} style={{ zIndex: 1100 }}>
-          <div className={styles.modalContent} style={{ maxWidth: "480px", padding: "2rem", borderRadius: "16px", background: "rgba(23, 23, 23, 0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(197, 160, 89, 0.3)", boxShadow: "0 12px 40px rgba(0, 0, 0, 0.6)" }}>
+          <div className={`${styles.modalContent} ${styles.checkInSuccessModal}`}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-1.2rem", marginRight: "-1.2rem" }}>
               <button 
                 onClick={() => {
@@ -997,16 +997,16 @@ export default function SalesDashboard({
             
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
               <div style={{
-                background: "rgba(45, 122, 96, 0.15)",
-                border: "1px solid rgba(45, 122, 96, 0.3)",
+                background: "rgba(45, 122, 96, 0.1)",
+                border: "1px solid rgba(45, 122, 96, 0.25)",
                 borderRadius: "50%",
                 padding: "1rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 20px rgba(45, 122, 96, 0.2)"
+                boxShadow: "0 4px 12px rgba(45, 122, 96, 0.1)"
               }}>
-                <Check size={36} style={{ color: "#34c759" }} />
+                <Check size={36} style={{ color: "#2d7a60" }} />
               </div>
               
               <h3 style={{ fontWeight: 800, fontSize: "1.35rem", color: "var(--text-primary)", marginTop: "0.5rem", letterSpacing: "-0.02em", textAlign: "center" }}>
@@ -1068,9 +1068,9 @@ export default function SalesDashboard({
                     gap: "0.5rem",
                     width: "100%",
                     borderRadius: "8px",
-                    background: "rgba(255, 255, 255, 0.05)",
+                    background: "rgba(197, 160, 89, 0.08)",
                     color: "var(--text-primary)",
-                    border: "1px solid var(--border-color)",
+                    border: "1px solid rgba(197, 160, 89, 0.3)",
                     cursor: "pointer"
                   }}
                 >

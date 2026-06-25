@@ -956,7 +956,7 @@ export default function CreateInvoiceForm({
                       </div>
 
                       {item.useImmediately && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1rem", marginTop: "0.25rem" }}>
+                        <div className={styles.immediateUsageGrid}>
                           <div className={styles.formGroup} style={{ margin: 0 }}>
                             <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
                               Kỹ thuật viên thực hiện *
@@ -1209,7 +1209,7 @@ export default function CreateInvoiceForm({
         );
       })()}
 
-      <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+      <div className={styles.formActionsRow}>
         {onCancel && (
           <button
             type="button"
