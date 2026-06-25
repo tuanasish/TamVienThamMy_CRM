@@ -76,6 +76,9 @@ export default function SpaConfigTabs({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const servicesOnly = initialServices.filter((sv) => sv.type !== "product");
+  const productsOnly = initialServices.filter((sv) => sv.type === "product");
+
   const handleCreateService = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -549,27 +552,71 @@ export default function SpaConfigTabs({
 
               <div className={styles.formGroup}>
                 <label className={styles.label}>Dịch vụ/Sản phẩm áp dụng (Để trống = Áp dụng tất cả)</label>
-                <div style={{ maxHeight: "180px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.75rem", borderRadius: "var(--radius-sm)", marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <div style={{ maxHeight: "220px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.75rem", borderRadius: "var(--radius-sm)", marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                   {initialServices.length === 0 ? (
                     <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Chưa có dịch vụ/sản phẩm nào để liên kết.</span>
                   ) : (
-                    initialServices.map((sv) => (
-                      <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={cardServices.includes(sv.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCardServices([...cardServices, sv.id]);
-                            } else {
-                              setCardServices(cardServices.filter((id) => id !== sv.id));
-                            }
-                          }}
-                          disabled={loading}
-                        />
-                        {sv.name} ({sv.type === "product" ? "SP" : "DV"})
-                      </label>
-                    ))
+                    <>
+                      {/* Dịch vụ */}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--accent-gold)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
+                          Dịch vụ Spa ({servicesOnly.length})
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", paddingLeft: "0.25rem" }}>
+                          {servicesOnly.length === 0 ? (
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Không có dịch vụ</span>
+                          ) : (
+                            servicesOnly.map((sv) => (
+                              <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", fontWeight: 500, cursor: "pointer" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={cardServices.includes(sv.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setCardServices([...cardServices, sv.id]);
+                                    } else {
+                                      setCardServices(cardServices.filter((id) => id !== sv.id));
+                                    }
+                                  }}
+                                  disabled={loading}
+                                />
+                                {sv.name}
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sản phẩm */}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#28a745", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.25rem", marginBottom: "0.4rem" }}>
+                          Sản phẩm bán lẻ ({productsOnly.length})
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", paddingLeft: "0.25rem" }}>
+                          {productsOnly.length === 0 ? (
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Không có sản phẩm</span>
+                          ) : (
+                            productsOnly.map((sv) => (
+                              <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", fontWeight: 500, cursor: "pointer" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={cardServices.includes(sv.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setCardServices([...cardServices, sv.id]);
+                                    } else {
+                                      setCardServices(cardServices.filter((id) => id !== sv.id));
+                                    }
+                                  }}
+                                  disabled={loading}
+                                />
+                                {sv.name}
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -617,24 +664,66 @@ export default function SpaConfigTabs({
                         />
                         <div className={styles.formGroup}>
                           <label className={styles.label} style={{ fontSize: "0.75rem" }}>Danh mục áp dụng (Để trống = Áp dụng tất cả)</label>
-                          <div style={{ maxHeight: "120px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.5rem", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                            {initialServices.map((sv) => (
-                              <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", fontWeight: 500 }}>
-                                <input
-                                  type="checkbox"
-                                  checked={editCardServices.includes(sv.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setEditCardServices([...editCardServices, sv.id]);
-                                    } else {
-                                      setEditCardServices(editCardServices.filter((id) => id !== sv.id));
-                                    }
-                                  }}
-                                  disabled={loading}
-                                />
-                                {sv.name}
-                              </label>
-                            ))}
+                          <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border-color)", padding: "0.5rem", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                            {/* Dịch vụ */}
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: "0.75rem", color: "var(--accent-gold)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
+                                Dịch vụ Spa ({servicesOnly.length})
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", paddingLeft: "0.2rem" }}>
+                                {servicesOnly.length === 0 ? (
+                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Không có dịch vụ</span>
+                                ) : (
+                                  servicesOnly.map((sv) => (
+                                    <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer" }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={editCardServices.includes(sv.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setEditCardServices([...editCardServices, sv.id]);
+                                          } else {
+                                            setEditCardServices(editCardServices.filter((id) => id !== sv.id));
+                                          }
+                                        }}
+                                        disabled={loading}
+                                      />
+                                      {sv.name}
+                                    </label>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Sản phẩm */}
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: "0.75rem", color: "#28a745", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.15rem", marginBottom: "0.3rem" }}>
+                                Sản phẩm bán lẻ ({productsOnly.length})
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", paddingLeft: "0.2rem" }}>
+                                {productsOnly.length === 0 ? (
+                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Không có sản phẩm</span>
+                                ) : (
+                                  productsOnly.map((sv) => (
+                                    <label key={sv.id} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer" }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={editCardServices.includes(sv.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setEditCardServices([...editCardServices, sv.id]);
+                                          } else {
+                                            setEditCardServices(editCardServices.filter((id) => id !== sv.id));
+                                          }
+                                        }}
+                                        disabled={loading}
+                                      />
+                                      {sv.name}
+                                    </label>
+                                  ))
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: "0.5rem" }}>

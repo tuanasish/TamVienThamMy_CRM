@@ -19,11 +19,8 @@ export default async function StaffAppointmentsPage() {
     },
   });
 
-  // Fetch only services (treatments) for selection
+  // Fetch all services and products
   const spaServices = await db.service.findMany({
-    where: {
-      type: "service",
-    },
     orderBy: { name: "asc" },
   });
 
@@ -31,6 +28,30 @@ export default async function StaffAppointmentsPage() {
     id: s.id,
     name: s.name,
     price: Number(s.price),
+    type: s.type,
+    sessions: (s as any).tags && typeof (s as any).tags === "object" && (s as any).tags !== null && "sessions" in (s as any).tags ? Number(((s as any).tags as any).sessions) : 1,
+  }));
+
+  // Fetch card templates
+  const cardTemplates = await db.cardTemplate.findMany({
+    orderBy: { price: "asc" },
+  });
+
+  const formattedCardTemplates = cardTemplates.map((c) => ({
+    id: c.id,
+    name: c.name,
+    price: Number(c.price),
+    value: Number(c.value),
+  }));
+
+  // Fetch staff
+  const staff = await db.staff.findMany({
+    orderBy: { fullName: "asc" },
+  });
+
+  const formattedStaff = staff.map((st) => ({
+    id: st.id,
+    fullName: st.fullName,
   }));
 
   // Fetch all appointments
@@ -77,6 +98,8 @@ export default async function StaffAppointmentsPage() {
         initialAppointments={formattedAppointments}
         customers={customers}
         services={formattedServices}
+        cardTemplates={formattedCardTemplates}
+        staff={formattedStaff}
       />
     </div>
   );

@@ -174,6 +174,28 @@ export default function SalesDashboard({
     setUsageLogs(initialUsageLogs);
   }, [initialUsageLogs]);
 
+  // Automatically open invoice modal if query parameters are present in URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const createInvoice = urlParams.get("createInvoice");
+      const customerId = urlParams.get("customerId");
+      const appointmentId = urlParams.get("appointmentId");
+
+      if (createInvoice === "true" && customerId && appointmentId) {
+        const appt = appointments.find((a) => a.id === appointmentId);
+        if (appt) {
+          setActiveAppointment(appt);
+          setShowInvoiceModal(true);
+          
+          // Clean up query parameters to keep URL clean and prevent modal from reopening on refresh
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      }
+    }
+  }, [appointments]);
+
   // Helpers to map item IDs to names
   const getItemName = (itemType: string, itemId: string) => {
     if (itemType === "card") {

@@ -22,8 +22,8 @@ export async function PUT(
     const priceNum = Number(price);
     const valueNum = Number(value);
 
-    if (isNaN(priceNum) || priceNum <= 0 || isNaN(valueNum) || valueNum <= 0) {
-      return NextResponse.json({ error: "Giá gốc và giá trị nạp phải là số lớn hơn 0" }, { status: 400 });
+    if (isNaN(priceNum) || priceNum < 0 || isNaN(valueNum) || valueNum <= 0) {
+      return NextResponse.json({ error: "Giá bán phải lớn hơn hoặc bằng 0 và giá trị nạp phải lớn hơn 0" }, { status: 400 });
     }
 
     if (valueNum < priceNum) {

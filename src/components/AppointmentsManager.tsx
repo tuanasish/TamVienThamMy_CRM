@@ -13,8 +13,10 @@ import {
   Check,
   X,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from "lucide-react";
+import CreateInvoiceForm from "./CreateInvoiceForm";
 
 const TIME_SLOTS = [
   "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -33,6 +35,20 @@ interface ServiceProp {
   id: string;
   name: string;
   price: number;
+  type: string;
+  sessions?: number;
+}
+
+interface CardTemplateProp {
+  id: string;
+  name: string;
+  price: number;
+  value: number;
+}
+
+interface StaffProp {
+  id: string;
+  fullName: string;
 }
 
 interface AppointmentProp {
@@ -52,18 +68,26 @@ interface AppointmentsManagerProps {
   initialAppointments: AppointmentProp[];
   customers: CustomerProp[];
   services: ServiceProp[];
+  cardTemplates: CardTemplateProp[];
+  staff: StaffProp[];
 }
 
 export default function AppointmentsManager({
   initialAppointments,
   customers,
   services,
+  cardTemplates,
+  staff,
 }: AppointmentsManagerProps) {
   const router = useRouter();
   const [appointments, setAppointments] = useState<AppointmentProp[]>(initialAppointments);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Invoice modal inline state
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [activeAppointment, setActiveAppointment] = useState<AppointmentProp | null>(null);
 
   // Filters State
   const [filterDate, setFilterDate] = useState(() => {
@@ -511,6 +535,20 @@ export default function AppointmentsManager({
                           </button>
                         )}
 
+                        {appt.status === "checked_in" && (
+                          <button
+                            onClick={() => {
+                              setActiveAppointment(appt);
+                              setShowInvoiceModal(true);
+                            }}
+                            className={styles.actionBtn}
+                            style={{ background: "rgba(197, 160, 89, 0.1)", color: "var(--accent-gold)", borderColor: "rgba(197, 160, 89, 0.3)" }}
+                            title="Lập hóa đơn bán lẻ cho lịch hẹn này"
+                          >
+                            <FileText size={14} /> Lập hóa đơn
+                          </button>
+                        )}
+
                         <button
                           onClick={() => openEditModal(appt)}
                           disabled={loading}
@@ -777,6 +815,53 @@ export default function AppointmentsManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG 3: INLINE CREATE INVOICE MODAL */}
+      {showInvoiceModal && activeAppointment && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent} style={{ maxWidth: "900px", width: "90vw" }}>
+            <div className={styles.modalHeader}>
+              <h3 style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-primary)" }}>
+                Lập hóa đơn thanh toán cho: {activeAppointment.customer.fullName}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowInvoiceModal(false);
+                  setActiveAppointment(null);
+                }} 
+                className={styles.closeBtn}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ marginTop: "1rem", maxHeight: "80vh", overflowY: "auto" }}>
+              <CreateInvoiceForm
+                customers={customers}
+                services={services}
+                cardTemplates={cardTemplates}
+                staff={staff}
+                initialCustomerId={activeAppointment.customerId}
+                appointmentId={activeAppointment.id}
+                onSuccess={() => {
+                  setShowInvoiceModal(false);
+                  setActiveAppointment(null);
+                  setSuccessMsg("Lập hóa đơn thanh toán thành công!");
+                  // Cập nhật trạng thái lịch hẹn cục bộ thành completed
+                  setAppointments(prev =>
+                    prev.map(a => a.id === activeAppointment.id ? { ...a, status: "completed" } : a)
+                  );
+                  router.refresh();
+                }}
+                onCancel={() => {
+                  setShowInvoiceModal(false);
+                  setActiveAppointment(null);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -4,15 +4,14 @@ import bcrypt from "bcryptjs";
 
 // Helper to determine customer tier based on total spent
 export function calculateTier(spent: number): string {
-  if (spent >= 1000000000) return "Business+";
-  if (spent >= 500000000) return "Business";
-  if (spent >= 100000000) return "VIP+";
-  if (spent >= 50000000) return "VIP";
-  if (spent >= 30000000) return "Diamond";
-  if (spent >= 20000000) return "Gold";
-  if (spent >= 10000000) return "Silver";
-  if (spent >= 5000000) return "Member";
-  return "Thường";
+  if (spent >= 500000000) return "Business+";
+  if (spent >= 100000000) return "Business";
+  if (spent >= 50000000) return "VIP+";
+  if (spent >= 30000000) return "VIP";
+  if (spent >= 20000000) return "Diamond";
+  if (spent >= 10000000) return "Gold";
+  if (spent >= 5000000) return "Silver";
+  return "Member";
 }
 
 // GET all customers

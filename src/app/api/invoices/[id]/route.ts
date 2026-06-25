@@ -47,59 +47,247 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       paidAmountDebt = 0,
       paidAmountOffset,
       internalNotes,
-      items, // array of updated items: { id, discount, staffId }
+      items, // array of items: { id, itemId, itemType, price, quantity, discount, staffId, saleStaffIds }
     } = body;
     
     const updatedInvoice = await db.$transaction(async (tx) => {
-      // 1. Fetch invoice + customer in parallel (both needed for calculations)
-      const [invoice, customer] = await Promise.all([
-        tx.invoice.findUnique({
-          where: { id },
-          include: { items: true },
-        }),
-        // We'll get the customer after we have the invoice, but we can start early
-        // Actually we need invoice.customerId first, so fetch invoice first
-        null,
-      ]);
+      // 1. Fetch existing invoice with items
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        include: { items: true },
+      });
       
       if (!invoice) throw new Error("Hóa đơn không tồn tại");
       
-      // Now fetch customer
-      const cust = await tx.customer.findUnique({
+      // Fetch customer
+      const customer = await tx.customer.findUnique({
         where: { id: invoice.customerId },
         select: { id: true, totalSpent: true },
       });
-      if (!cust) throw new Error("Khách hàng không tồn tại");
-      
-      // 2. Update InvoiceItems in PARALLEL (not sequential)
-      let itemsTotalDiscount = 0;
-      if (items && Array.isArray(items)) {
-        const updatePromises = items.map((itm: any) => {
-          const matchedItem = invoice.items.find((i) => i.id === itm.id);
-          if (matchedItem) {
-            const itemDisc = Number(itm.discount || 0);
-            itemsTotalDiscount += itemDisc;
-            return tx.invoiceItem.update({
-              where: { id: itm.id },
-              data: {
-                discount: itemDisc,
-                staff: itm.staffId ? { connect: { id: itm.staffId } } : { disconnect: true },
-                saleStaffIds: itm.saleStaffIds || [],
-              },
-            });
+      if (!customer) throw new Error("Khách hàng không tồn tại");
+
+      const dateMin = new Date(invoice.createdAt.getTime() - 10000);
+      const dateMax = new Date(invoice.createdAt.getTime() + 10000);
+
+      // Helper function to delete synced treatment and its logs
+      const deleteSyncedTreatment = async (serviceId: string) => {
+        const treatments = await tx.customerTreatment.findMany({
+          where: {
+            customerId: invoice.customerId,
+            serviceId,
+            createdAt: { gte: dateMin, lte: dateMax }
           }
-          return null;
-        }).filter(Boolean);
-        
-        await Promise.all(updatePromises);
-      } else {
-        itemsTotalDiscount = invoice.items.reduce((sum, i) => sum + Number(i.discount), 0);
+        });
+        for (const tr of treatments) {
+          // Delete usage logs
+          await tx.usageLog.deleteMany({
+            where: { treatmentId: tr.id }
+          });
+          // Delete treatment
+          await tx.customerTreatment.delete({
+            where: { id: tr.id }
+          });
+        }
+      };
+
+      // Helper function to delete synced customer card
+      const deleteSyncedCard = async (templateId: string) => {
+        await tx.customerCard.deleteMany({
+          where: {
+            customerId: invoice.customerId,
+            templateId,
+            createdAt: { gte: dateMin, lte: dateMax }
+          }
+        });
+      };
+
+      // Helper function to create synced treatment
+      const createSyncedTreatment = async (serviceId: string, price: number, qty: number, disc: number) => {
+        const service = await tx.service.findUnique({
+          where: { id: serviceId },
+          select: { type: true }
+        });
+        if (service && service.type === "service") {
+          await tx.customerTreatment.create({
+            data: {
+              customerId: invoice.customerId,
+              serviceId,
+              totalSessions: qty,
+              usedSessions: 0,
+              pricePaid: Math.max((price * qty) - disc, 0),
+              createdAt: invoice.createdAt, // Match original invoice date
+            }
+          });
+        }
+      };
+
+      // Helper function to create synced card
+      const createSyncedCard = async (templateId: string) => {
+        const template = await tx.cardTemplate.findUnique({
+          where: { id: templateId },
+          select: { price: true, value: true }
+        });
+        if (template) {
+          await tx.customerCard.create({
+            data: {
+              customerId: invoice.customerId,
+              templateId,
+              originalPrice: template.price,
+              originalValue: template.value,
+              currentBalance: template.value,
+              createdAt: invoice.createdAt, // Match original invoice date
+            }
+          });
+        }
+      };
+
+      // 2. Classify items (Added, Removed, Updated)
+      const existingItems = invoice.items;
+      const incomingItems = items || [];
+
+      // A. Removed Items: in DB but not in incoming payload
+      const removedItems = existingItems.filter(
+        (ext) => !incomingItems.some((inc: any) => inc.id === ext.id)
+      );
+
+      // B. Added Items: id starts with 'new-' or not in DB
+      const addedItems = incomingItems.filter(
+        (inc: any) => !inc.id || inc.id.toString().startsWith("new-")
+      );
+
+      // C. Updated Items: id in DB
+      const updatedItems = incomingItems.filter(
+        (inc: any) => inc.id && !inc.id.toString().startsWith("new-") && existingItems.some((ext) => ext.id === inc.id)
+      );
+
+      // 3. Process REMOVED items
+      for (const itm of removedItems) {
+        // Delete invoice item
+        await tx.invoiceItem.delete({ where: { id: itm.id } });
+
+        // Delete synced customer treatment or customer card
+        if (itm.itemType === "service" || itm.itemType === "product") {
+          await deleteSyncedTreatment(itm.itemId);
+        } else if (itm.itemType === "card") {
+          await deleteSyncedCard(itm.itemId);
+        }
       }
-      
-      // Calculate new total and final amount
-      const rawTotal = invoice.items.reduce((sum, i) => sum + (Number(i.price) * i.quantity), 0);
+
+      // 4. Process ADDED items
+      for (const itm of addedItems) {
+        const itemPrice = Number(itm.price || 0);
+        const itemQty = Number(itm.quantity || 1);
+        const itemDiscount = Number(itm.discount || 0);
+
+        // Create invoice item
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: id,
+            itemType: itm.itemType,
+            itemId: itm.itemId,
+            price: itemPrice,
+            quantity: itemQty,
+            discount: itemDiscount,
+            staffId: itm.staffId || null,
+            saleStaffIds: itm.saleStaffIds || [],
+          }
+        });
+
+        // Grant features
+        if (itm.itemType === "service" || itm.itemType === "product") {
+          await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount);
+        } else if (itm.itemType === "card") {
+          await createSyncedCard(itm.itemId);
+        }
+      }
+
+      // 5. Process UPDATED items
+      for (const itm of updatedItems) {
+        const oldItm = existingItems.find((x) => x.id === itm.id)!;
+        const itemPrice = Number(itm.price || 0);
+        const itemQty = Number(itm.quantity || 1);
+        const itemDiscount = Number(itm.discount || 0);
+
+        // Scenario 5.1: Changed itemId (equivalent to delete old and create new)
+        if (itm.itemId !== oldItm.itemId || itm.itemType !== oldItm.itemType) {
+          // Delete old features
+          if (oldItm.itemType === "service" || oldItm.itemType === "product") {
+            await deleteSyncedTreatment(oldItm.itemId);
+          } else if (oldItm.itemType === "card") {
+            await deleteSyncedCard(oldItm.itemId);
+          }
+
+          // Create new features
+          if (itm.itemType === "service" || itm.itemType === "product") {
+            await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount);
+          } else if (itm.itemType === "card") {
+            await createSyncedCard(itm.itemId);
+          }
+        } 
+        // Scenario 5.2: Same itemId but changed price/quantity/discount
+        else if (itemPrice !== Number(oldItm.price) || itemQty !== oldItm.quantity || itemDiscount !== Number(oldItm.discount)) {
+          if (itm.itemType === "service" || itm.itemType === "product") {
+            // Find and update synced customer treatment
+            const treatment = await tx.customerTreatment.findFirst({
+              where: {
+                customerId: invoice.customerId,
+                serviceId: itm.itemId,
+                createdAt: { gte: dateMin, lte: dateMax }
+              }
+            });
+            if (treatment) {
+              await tx.customerTreatment.update({
+                where: { id: treatment.id },
+                data: {
+                  totalSessions: itemQty,
+                  pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
+                }
+              });
+            }
+          } else if (itm.itemType === "card") {
+            // Find and update synced customer card
+            const card = await tx.customerCard.findFirst({
+              where: {
+                customerId: invoice.customerId,
+                templateId: itm.itemId,
+                createdAt: { gte: dateMin, lte: dateMax }
+              }
+            });
+            if (card) {
+              await tx.customerCard.update({
+                where: { id: card.id },
+                data: {
+                  originalPrice: itemPrice,
+                }
+              });
+            }
+          }
+        }
+
+        // Update the invoice item record
+        await tx.invoiceItem.update({
+          where: { id: itm.id },
+          data: {
+            itemType: itm.itemType,
+            itemId: itm.itemId,
+            price: itemPrice,
+            quantity: itemQty,
+            discount: itemDiscount,
+            staffId: itm.staffId || null,
+            saleStaffIds: itm.saleStaffIds || [],
+          }
+        });
+      }
+
+      // 6. Recalculate invoice finances
+      const allUpdatedItems = await tx.invoiceItem.findMany({
+        where: { invoiceId: id }
+      });
+
+      const newRawTotal = allUpdatedItems.reduce((sum, i) => sum + (Number(i.price) * i.quantity), 0);
+      const itemsTotalDiscount = allUpdatedItems.reduce((sum, i) => sum + Number(i.discount), 0);
       const invoiceDisc = Number(discount);
-      const newFinalAmount = Math.max(rawTotal - itemsTotalDiscount - invoiceDisc, 0);
+      const newFinalAmount = Math.max(newRawTotal - itemsTotalDiscount - invoiceDisc, 0);
 
       const paidOffset = paidAmountOffset !== undefined ? Number(paidAmountOffset) : Number(invoice.paidAmountOffset || 0);
 
@@ -129,19 +317,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
       const calculatedPaymentType = (paidDebt > 0 || paidHomeCredit > 0 || paidMiraeAsset > 0) ? "installment" : "cash";
       const calculatedInstallmentType = paidDebt > 0 ? "counter" : (paidHomeCredit > 0 ? "home_credit" : (paidMiraeAsset > 0 ? "mirae_asset" : null));
+
+      // 7. Update Customer spent integration
+      const oldInvoiceNetSpent = Number(invoice.finalAmount) - Number(invoice.paidAmountOffset);
+      const newInvoiceNetSpent = newFinalAmount - paidOffset;
+      const diffSpent = newInvoiceNetSpent - oldInvoiceNetSpent;
       
-      // 3. Update invoice + customer + delete old schedules — ALL IN PARALLEL
-      const newTotalSpent = Math.max(
-        0,
-        Number(cust.totalSpent) - (Number(invoice.finalAmount) - Number(invoice.paidAmountOffset)) + (newFinalAmount - paidOffset)
-      );
+      const newTotalSpent = Math.max(0, Number(customer.totalSpent) + diffSpent);
       const newTier = calculateTier(newTotalSpent);
-      
+
       const [updated] = await Promise.all([
         tx.invoice.update({
           where: { id },
           data: {
             staff: { connect: { id: staffId } },
+            totalAmount: newRawTotal,
             discount: invoiceDisc,
             finalAmount: newFinalAmount,
             paymentType: calculatedPaymentType,
@@ -158,15 +348,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           },
         }),
         tx.customer.update({
-          where: { id: cust.id },
+          where: { id: customer.id },
           data: { totalSpent: newTotalSpent, tier: newTier },
         }),
         tx.installmentSchedule.deleteMany({
           where: { invoiceId: id },
         }),
       ]);
-      
-      // 4. Recreate installment schedules with createMany (1 query instead of N)
+
+      // 8. Recreate installment schedules
       if (paidDebt > 0) {
         const months = Number(installmentMonths || 1);
         const debtAmount = paidDebt;
@@ -195,7 +385,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         
         await tx.installmentSchedule.createMany({ data: scheduleData });
       }
-      
+
       return updated;
     });
     
@@ -246,7 +436,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       
       for (const item of invoice.items) {
         if (item.itemType === "card") {
-          await tx.customerCard.deleteMany({
+          // Find customer cards created by this invoice to delete their usage logs first
+          const cards = await tx.customerCard.findMany({
             where: {
               customerId: invoice.customerId,
               templateId: item.itemId,
@@ -255,9 +446,23 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
                 lte: dateMax,
               },
             },
+            select: { id: true }
           });
+          
+          if (cards.length > 0) {
+            const cardIds = cards.map(c => c.id);
+            // Delete usage logs associated with these cards
+            await tx.usageLog.deleteMany({
+              where: { cardId: { in: cardIds } }
+            });
+            // Delete the cards
+            await tx.customerCard.deleteMany({
+              where: { id: { in: cardIds } }
+            });
+          }
         } else if (item.itemType === "service") {
-          await tx.customerTreatment.deleteMany({
+          // Find customer treatments created by this invoice to delete their usage logs first
+          const treatments = await tx.customerTreatment.findMany({
             where: {
               customerId: invoice.customerId,
               serviceId: item.itemId,
@@ -266,7 +471,20 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
                 lte: dateMax,
               },
             },
+            select: { id: true }
           });
+          
+          if (treatments.length > 0) {
+            const treatmentIds = treatments.map(t => t.id);
+            // Delete usage logs associated with these treatments
+            await tx.usageLog.deleteMany({
+              where: { treatmentId: { in: treatmentIds } }
+            });
+            // Delete the treatments
+            await tx.customerTreatment.deleteMany({
+              where: { id: { in: treatmentIds } }
+            });
+          }
         }
       }
       
