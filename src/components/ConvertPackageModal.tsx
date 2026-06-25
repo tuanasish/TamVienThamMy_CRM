@@ -296,6 +296,12 @@ export default function ConvertPackageModal({
       return;
     }
 
+    if (finalAmount > totalRevokeValue) {
+      setError("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc nhỏ hơn giá trị quy đổi của gói cũ.");
+      setLoading(false);
+      return;
+    }
+
     // Verify sale staff assignment
     const missingStaff = selectedItems.find((itm) => !itm.saleStaffIds || itm.saleStaffIds.length === 0);
     if (missingStaff) {
@@ -853,6 +859,12 @@ export default function ConvertPackageModal({
                     <span>Còn lại cần thanh toán:</span>
                     <strong style={{ fontSize: "1.2rem" }}>{formatVND(remainderToPay)}</strong>
                   </div>
+                  
+                  {remainderToPay > 0 && (
+                    <div style={{ color: "#dc3545", background: "rgba(220, 53, 69, 0.05)", padding: "0.5rem 0.75rem", borderRadius: "4px", fontSize: "0.8rem", marginTop: "0.5rem", fontWeight: 600, border: "1px solid rgba(220, 53, 69, 0.15)" }}>
+                      ⚠️ Giá trị dịch vụ mới lớn hơn gói cũ. Chỉ được đổi bằng hoặc nhỏ hơn.
+                    </div>
+                  )}
                 </div>
 
                 {/* Remaining Amount Payment Methods */}
@@ -1030,7 +1042,15 @@ export default function ConvertPackageModal({
                 <button type="button" onClick={() => setIsOpen(false)} className={styles.cancelBtn} disabled={loading}>
                   Hủy
                 </button>
-                <button type="submit" className={styles.createBtn} disabled={loading} style={{ background: "var(--grad-premium)" }}>
+                <button 
+                  type="submit" 
+                  className={styles.createBtn} 
+                  disabled={loading || remainderToPay > 0} 
+                  style={{ 
+                    background: remainderToPay > 0 ? "var(--border-color)" : "var(--grad-premium)", 
+                    cursor: remainderToPay > 0 ? "not-allowed" : "pointer" 
+                  }}
+                >
                   {loading ? "Đang xử lý..." : "Xác nhận chuyển đổi"}
                 </button>
               </div>

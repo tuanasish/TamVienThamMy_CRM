@@ -51,6 +51,34 @@ export async function POST(request: Request) {
       if (!staff) throw new Error("Nhân viên không tồn tại");
       if (!fallbackService) throw new Error("Hệ thống chưa có dịch vụ nào để ghi nhận nhật ký");
 
+      // 1.5. Validate equal or lower price rule
+      let calculatedRevokeValue = 0;
+      for (const cardId of revokeCardIds) {
+        const card = await tx.customerCard.findUnique({
+          where: { id: cardId }
+        });
+        if (card) {
+          const spentValue = Number(card.originalValue) - Number(card.currentBalance);
+          calculatedRevokeValue += Math.max(0, Number(card.originalPrice) - spentValue);
+        }
+      }
+
+      for (const tId of revokeTreatmentIds) {
+        const treatment = await tx.customerTreatment.findUnique({
+          where: { id: tId },
+          include: { service: true }
+        });
+        if (treatment) {
+          const retailPrice = treatment.service.price ? Number(treatment.service.price) : 0;
+          calculatedRevokeValue += Math.max(0, Number(treatment.pricePaid) - treatment.usedSessions * retailPrice);
+        }
+      }
+
+      const finalAmtCheck = Number(finalAmount);
+      if (finalAmtCheck > calculatedRevokeValue) {
+        throw new Error("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc thấp hơn giá trị quy đổi của gói cũ.");
+      }
+
       // 2. Revoke and log selected CustomerCards
       for (const cardId of revokeCardIds) {
         const card = await tx.customerCard.findUnique({
