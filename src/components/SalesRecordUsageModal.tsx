@@ -23,6 +23,7 @@ interface SalesRecordUsageModalProps {
   services: { id: string; name: string; price: number; type: string }[];
   staffMembers: { id: string; fullName: string }[];
   onSuccess: () => void;
+  triggerId?: string;
 }
 
 const formatMoneyInput = (val: string) => {
@@ -41,6 +42,7 @@ export default function SalesRecordUsageModal({
   services,
   staffMembers,
   onSuccess,
+  triggerId,
 }: SalesRecordUsageModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
@@ -187,6 +189,7 @@ export default function SalesRecordUsageModal({
   return (
     <>
       <button
+        id={triggerId}
         onClick={handleOpen}
         className={`${styles.actionBtnSmall} ${styles.btnEdit}`}
         title="Ghi nhận khách sử dụng dịch vụ"

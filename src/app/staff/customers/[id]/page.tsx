@@ -56,7 +56,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       status: "pending",
       invoice: {
         customerId: id,
-        installmentType: "counter",
       },
     },
     select: { amount: true },

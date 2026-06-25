@@ -117,3 +117,67 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Không thể tạo tài khoản nhân viên mới" }, { status: 500 });
   }
 }
+
+// DELETE a staff account (only for logged-in staff)
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Thiếu ID nhân viên cần xóa" }, { status: 400 });
+    }
+
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("spa_crm_session");
+
+    if (!sessionCookie) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+
+    let session;
+    try {
+      session = JSON.parse(sessionCookie.value);
+    } catch (e) {
+      return NextResponse.json({ error: "Phiên làm việc không hợp lệ" }, { status: 400 });
+    }
+
+    if (session.role !== "staff") {
+      return NextResponse.json({ error: "Bạn không có quyền thực hiện chức năng này" }, { status: 403 });
+    }
+
+    // Prevent self-deletion
+    if (session.id === id) {
+      return NextResponse.json({ error: "Bạn không thể tự xóa tài khoản của chính mình" }, { status: 400 });
+    }
+
+    // Check if the staff member has relations (invoices, usage logs)
+    const [invoicesCount, logsCount] = await Promise.all([
+      db.invoice.count({ where: { staffId: id } }),
+      db.usageLog.count({ where: { staffId: id } }),
+    ]);
+
+    if (invoicesCount > 0 || logsCount > 0) {
+      return NextResponse.json({
+        error: "Không thể xóa nhân viên này vì họ đã có lịch sử lập hóa đơn hoặc ghi nhận dịch vụ trên hệ thống"
+      }, { status: 400 });
+    }
+
+    // Delete the staff member
+    await db.staff.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("DELETE Staff Error:", error);
+    // Handle Prisma foreign key constraint errors (P2003)
+    if (error.code === "P2003") {
+      return NextResponse.json({
+        error: "Không thể xóa nhân viên này vì đã có dữ liệu giao dịch liên quan trên hệ thống"
+      }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Không thể xóa nhân viên" }, { status: 500 });
+  }
+}
+

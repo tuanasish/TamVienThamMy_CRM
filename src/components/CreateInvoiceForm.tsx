@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/staff/sales/page.module.css";
-import { Receipt, Plus, Trash2, X } from "lucide-react";
+import { Receipt, Plus, Trash2, X, Sparkles, UserCheck, Activity, AlertCircle } from "lucide-react";
 
 const formatMoneyInput = (val: string) => {
   const clean = val.replace(/\D/g, "");
@@ -61,6 +61,9 @@ interface SelectedItem {
   discount: string; // money discount for this specific item line
   staffId: string; // technician/sale assigned to this item
   saleStaffIds: string[];
+  useImmediately?: boolean;
+  technicianName?: string;
+  sessionNotes?: string;
 }
 
 export default function CreateInvoiceForm({
@@ -376,6 +379,30 @@ export default function CreateInvoiceForm({
     );
   };
 
+  const handleImmediateUseChange = (id: string, checked: boolean) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id ? { ...item, useImmediately: checked, technicianName: checked ? (staff[0]?.fullName || "") : "" } : item
+      )
+    );
+  };
+
+  const handleImmediateTechnicianChange = (id: string, techName: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id ? { ...item, technicianName: techName } : item
+      )
+    );
+  };
+
+  const handleImmediateNotesChange = (id: string, notes: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id ? { ...item, sessionNotes: notes } : item
+      )
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -446,6 +473,9 @@ export default function CreateInvoiceForm({
             discount: Number(parseMoneyInput(itm.discount || "0")) || 0,
             staffId: (itm.saleStaffIds?.[0] ? itm.saleStaffIds[0].split(":")[0] : null) || itm.staffId || null,
             saleStaffIds: itm.saleStaffIds || [],
+            useImmediately: itm.useImmediately || false,
+            technicianName: itm.technicianName || "",
+            sessionNotes: itm.sessionNotes || "",
           })),
           appointmentId: appointmentId || undefined,
         }),
@@ -750,149 +780,223 @@ export default function CreateInvoiceForm({
               const itemDiscountVal = Number(parseMoneyInput(item.discount || "0")) || 0;
               const itemSubtotal = Math.max((item.price * item.quantity) - itemDiscountVal, 0);
               return (
-                <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow}>
-                  <div className={styles.itemDetails} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    <span className={styles.itemName} style={{ fontWeight: 700, fontSize: "0.95rem" }}>{item.name}</span>
-                    <div style={{ display: "flex", gap: "1rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                      <span>Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong></span>
-                      <span>Số lượng: <strong>{item.quantity}</strong></span>
-                      {itemDiscountVal > 0 && <span style={{ color: "#dc3545" }}>Giảm: <strong>-{itemDiscountVal.toLocaleString("vi-VN")}đ</strong></span>}
+                <div key={`${item.id}-${item.itemType}`} className={styles.selectedItemRow} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", borderBottom: "1px dashed var(--border-color)", paddingBottom: "1rem", marginBottom: "1rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", gap: "1.5rem" }}>
+                    <div className={styles.itemDetails} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                      <span className={styles.itemName} style={{ fontWeight: 700, fontSize: "0.95rem" }}>{item.name}</span>
+                      <div style={{ display: "flex", gap: "1rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                        <span>Đơn giá: <strong>{item.price.toLocaleString("vi-VN")}đ</strong></span>
+                        <span>Số lượng: <strong>{item.quantity}</strong></span>
+                        {itemDiscountVal > 0 && <span style={{ color: "#dc3545" }}>Giảm: <strong>-{itemDiscountVal.toLocaleString("vi-VN")}đ</strong></span>}
+                      </div>
+                      <div style={{ fontSize: "0.88rem", marginTop: "0.15rem" }}>
+                        Thành tiền: <strong style={{ color: "var(--accent-gold)", fontWeight: 800 }}>{itemSubtotal.toLocaleString("vi-VN")}đ</strong>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.88rem", marginTop: "0.15rem" }}>
-                      Thành tiền: <strong style={{ color: "var(--accent-gold)", fontWeight: 800 }}>{itemSubtotal.toLocaleString("vi-VN")}đ</strong>
-                    </div>
-                  </div>
 
-                  <div className={styles.itemActions}>
-                    {item.itemType === "service" && (
-                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthSessions}`}>
-                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
+                    <div className={styles.itemActions}>
+                      {item.itemType === "service" && (
+                        <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthSessions}`}>
+                          <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Số buổi:</label>
+                          <input
+                            type="number"
+                            className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
+                            value={item.totalSessions || 1}
+                            onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                            min="1"
+                            disabled={loading}
+                          />
+                        </div>
+                      )}
+
+                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthQty}`}>
+                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
                         <input
                           type="number"
                           className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
-                          value={item.totalSessions || 1}
-                          onChange={(e) => handleSessionsChange(item.id, Number(e.target.value))}
+                          value={item.quantity}
+                          onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
                           min="1"
                           disabled={loading}
                         />
                       </div>
-                    )}
 
-                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthQty}`}>
-                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>SL:</label>
-                      <input
-                        type="number"
-                        className={`${styles.input} ${styles.actionInput} ${styles.actionInputCenter}`}
-                        value={item.quantity}
-                        onChange={(e) => handleQtyChange(item.id, item.itemType, Number(e.target.value))}
-                        min="1"
-                        disabled={loading}
-                      />
-                    </div>
+                      {/* CUSTOM DISCOUNT PER ITEM */}
+                      <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
+                        <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
+                        <input
+                          type="text"
+                          className={`${styles.input} ${styles.actionInput}`}
+                          placeholder="0"
+                          value={item.discount}
+                          onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
+                          disabled={loading}
+                        />
+                      </div>
 
-                    {/* CUSTOM DISCOUNT PER ITEM */}
-                    <div className={`${styles.formGroup} ${styles.itemActionRow} ${styles.widthDiscount}`}>
-                      <label className={styles.label} style={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>Giảm:</label>
-                      <input
-                        type="text"
-                        className={`${styles.input} ${styles.actionInput}`}
-                        placeholder="0"
-                        value={item.discount}
-                        onChange={(e) => handleItemDiscountChange(item.id, item.itemType, e.target.value)}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    {/* STAFF / SALE SELECTION PER ITEM */}
-                    <div className={`${styles.formGroup} ${styles.itemActionRow}`} style={{ flex: 1, minWidth: "220px" }}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>Sale/NV (chọn nhiều, nhập % nếu chia không đều):</label>
-                      <div style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "0.4rem",
-                        padding: "0.4rem",
-                        border: "1px solid var(--border-color)",
-                        borderRadius: "6px",
-                        background: "var(--bg-primary)",
-                        maxHeight: "100px",
-                        overflowY: "auto",
-                        width: "100%"
-                      }}>
-                        {staff.map((st) => {
-                          const isChecked = (item.saleStaffIds || []).some(id => id === st.id || id.startsWith(st.id + ":"));
-                          return (
-                            <label key={st.id} style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.25rem",
-                              fontSize: "0.8rem",
-                              cursor: "pointer",
-                              padding: "0.15rem 0.35rem",
-                              borderRadius: "4px",
-                              background: isChecked ? "rgba(212, 175, 55, 0.1)" : "transparent",
-                              border: isChecked ? "1px solid var(--accent-gold)" : "1px solid transparent",
-                              color: isChecked ? "var(--accent-gold)" : "var(--text-primary)",
-                              fontWeight: isChecked ? 600 : 400
-                            }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
-                                  if (e.target.checked) {
-                                    newIds.push(st.id);
-                                  }
-                                  handleItemStaffsChange(item.id, item.itemType, newIds);
-                                }}
-                                style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
-                              />
-                              <span>{st.fullName}</span>
-                              {isChecked && (
+                      {/* STAFF / SALE SELECTION PER ITEM */}
+                      <div className={`${styles.formGroup} ${styles.itemActionRow}`} style={{ flex: 1, minWidth: "220px" }}>
+                        <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>Sale/NV (chọn nhiều, nhập % nếu chia không đều):</label>
+                        <div style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "0.4rem",
+                          padding: "0.4rem",
+                          border: "1px solid var(--border-color)",
+                          borderRadius: "6px",
+                          background: "var(--bg-primary)",
+                          maxHeight: "100px",
+                          overflowY: "auto",
+                          width: "100%"
+                        }}>
+                          {staff.map((st) => {
+                            const isChecked = (item.saleStaffIds || []).some(id => id === st.id || id.startsWith(st.id + ":"));
+                            return (
+                              <label key={st.id} style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                fontSize: "0.8rem",
+                                cursor: "pointer",
+                                padding: "0.15rem 0.35rem",
+                                borderRadius: "4px",
+                                background: isChecked ? "rgba(212, 175, 55, 0.1)" : "transparent",
+                                border: isChecked ? "1px solid var(--accent-gold)" : "1px solid transparent",
+                                color: isChecked ? "var(--accent-gold)" : "var(--text-primary)",
+                                fontWeight: isChecked ? 600 : 400
+                              }}>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  placeholder="%"
-                                  value={(() => {
-                                    const match = item.saleStaffIds?.find(id => id.startsWith(st.id + ":"));
-                                    return match ? match.split(":")[1] || "" : "";
-                                  })()}
+                                  type="checkbox"
+                                  checked={isChecked}
                                   onChange={(e) => {
-                                    const val = e.target.value;
                                     let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
-                                    if (val === "") {
+                                    if (e.target.checked) {
                                       newIds.push(st.id);
-                                    } else {
-                                      newIds.push(`${st.id}:${val}`);
                                     }
                                     handleItemStaffsChange(item.id, item.itemType, newIds);
                                   }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    width: "42px",
-                                    marginLeft: "2px",
-                                    padding: "2px 0",
-                                    fontSize: "0.72rem",
-                                    borderRadius: "3px",
-                                    border: "1px solid var(--border-color)",
-                                    background: "var(--bg-secondary)",
-                                    color: "var(--text-primary)",
-                                    textAlign: "center"
-                                  }}
+                                  style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
                                 />
+                                <span>{st.fullName}</span>
+                                {isChecked && (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    placeholder="%"
+                                    value={(() => {
+                                      const match = item.saleStaffIds?.find(id => id.startsWith(st.id + ":"));
+                                      return match ? match.split(":")[1] || "" : "";
+                                    })()}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      let newIds = (item.saleStaffIds || []).filter(id => id !== st.id && !id.startsWith(st.id + ":"));
+                                      if (val === "") {
+                                        newIds.push(st.id);
+                                      } else {
+                                        newIds.push(`${st.id}:${val}`);
+                                      }
+                                      handleItemStaffsChange(item.id, item.itemType, newIds);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      width: "42px",
+                                      marginLeft: "2px",
+                                      padding: "2px 0",
+                                      fontSize: "0.72rem",
+                                      borderRadius: "3px",
+                                      border: "1px solid var(--border-color)",
+                                      background: "var(--bg-secondary)",
+                                      color: "var(--text-primary)",
+                                      textAlign: "center"
+                                    }}
+                                  />
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <Trash2
+                        size={16}
+                        className={styles.removeItemBtn}
+                        onClick={() => handleRemoveItem(item.id, item.itemType)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* IMMEDIATE TREATMENT USE SUB-SECTION */}
+                  {item.itemType === "service" && (
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(45, 122, 96, 0.06) 0%, rgba(45, 122, 96, 0.02) 100%)",
+                      border: "1px solid rgba(45, 122, 96, 0.2)",
+                      borderLeft: "4px solid #2d7a60",
+                      borderRadius: "8px",
+                      padding: "0.85rem 1.15rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                      marginTop: "0.35rem",
+                      alignSelf: "stretch",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <input
+                          type="checkbox"
+                          id={`useImmediately-${item.id}`}
+                          checked={!!item.useImmediately}
+                          onChange={(e) => handleImmediateUseChange(item.id, e.target.checked)}
+                          style={{ width: "16px", height: "16px", accentColor: "#2d7a60", cursor: "pointer" }}
+                        />
+                        <label htmlFor={`useImmediately-${item.id}`} style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--accent-gold)", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <Sparkles size={16} style={{ color: "#34c759" }} />
+                          Thực hiện buổi đầu tiên ngay bây giờ (Trừ 1 buổi & tạo Nhật ký)
+                        </label>
+                      </div>
+
+                      {item.useImmediately && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1rem", marginTop: "0.25rem" }}>
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                              Kỹ thuật viên thực hiện *
+                              {!item.technicianName && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem", color: "#ff9500", fontSize: "0.7rem", fontWeight: "normal", textTransform: "none", letterSpacing: "normal" }}>
+                                  <AlertCircle size={10} /> Chọn KTV
+                                </span>
                               )}
                             </label>
-                          );
-                        })}
-                      </div>
-                    </div>
+                            <select
+                              className={styles.select}
+                              value={item.technicianName || ""}
+                              onChange={(e) => handleImmediateTechnicianChange(item.id, e.target.value)}
+                              style={{ padding: "0.35rem", fontSize: "0.8rem", appearance: "auto" }}
+                              required
+                            >
+                              <option value="">-- Chọn KTV --</option>
+                              {staff.map((st) => (
+                                <option key={st.id} value={st.fullName}>
+                                  {st.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                    <Trash2
-                      size={16}
-                      className={styles.removeItemBtn}
-                      onClick={() => handleRemoveItem(item.id, item.itemType)}
-                    />
-                  </div>
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)" }}>Ghi chú tình trạng buổi làm đầu tiên</label>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              placeholder="Ví dụ: Da khách có nhiều mụn ẩn, nặn mụn xong sát khuẩn điện cam và đắp nạ làm dịu..."
+                              value={item.sessionNotes || ""}
+                              onChange={(e) => handleImmediateNotesChange(item.id, e.target.value)}
+                              style={{ padding: "0.35rem 0.5rem", fontSize: "0.8rem" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -1076,6 +1180,35 @@ export default function CreateInvoiceForm({
         </div>
       </div>
 
+      {/* 5. Immediate Usage Summary Banner */}
+      {(() => {
+        const hasImmediateUsage = selectedItems.some((itm) => itm.itemType === "service" && itm.useImmediately);
+        const immediateUsageCount = selectedItems.filter((itm) => itm.itemType === "service" && itm.useImmediately).length;
+
+        if (!hasImmediateUsage) return null;
+
+        return (
+          <div style={{
+            background: "rgba(45, 122, 96, 0.08)",
+            border: "1px solid rgba(45, 122, 96, 0.2)",
+            borderRadius: "8px",
+            padding: "0.85rem 1.25rem",
+            marginBottom: "1.25rem",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.6rem",
+            fontSize: "0.88rem",
+            color: "var(--text-primary)"
+          }}>
+            <Activity size={18} style={{ color: "#34c759", marginTop: "0.1rem", flexShrink: 0 }} />
+            <div>
+              <strong style={{ color: "#34c759", display: "block", marginBottom: "0.15rem" }}>Bắt đầu liệu trình ngay lập tức</strong>
+              Sau khi lưu hóa đơn, hệ thống sẽ tự động trừ <span style={{ color: "var(--accent-gold)", fontWeight: 700 }}>{immediateUsageCount} buổi</span> trị liệu đầu tiên và tạo Nhật ký dịch vụ bàn giao cho các kỹ thuật viên tương ứng.
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
         {onCancel && (
           <button
@@ -1088,9 +1221,16 @@ export default function CreateInvoiceForm({
             Hủy
           </button>
         )}
-        <button type="submit" className={styles.submitBtn} disabled={loading} style={{ flex: 1 }}>
-          <Receipt size={20} /> Xuất hóa đơn & Ghi nhận
-        </button>
+        {(() => {
+          const hasImmediateUsage = selectedItems.some((itm) => itm.itemType === "service" && itm.useImmediately);
+
+          return (
+            <button type="submit" className={styles.submitBtn} disabled={loading} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+              {hasImmediateUsage ? <Sparkles size={18} style={{ color: "#34c759" }} /> : <Receipt size={18} />}
+              {hasImmediateUsage ? "Lập hóa đơn & Bắt đầu dịch vụ" : "Lập hóa đơn bán hàng"}
+            </button>
+          );
+        })()}
       </div>
     </form>
   );

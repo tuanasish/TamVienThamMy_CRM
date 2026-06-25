@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
 import AddStaffModal from "@/components/AddStaffModal";
+import DeleteStaffButton from "@/components/DeleteStaffButton";
 import { Search, ShieldAlert, User, ShieldCheck } from "lucide-react";
 
 interface PageProps {
@@ -72,7 +73,8 @@ export default async function StaffPage({ searchParams }: PageProps) {
                 <th className={styles.th}>Tên tài khoản</th>
                 <th className={styles.th}>Vai trò</th>
                 <th className={styles.th}>Ngày tạo</th>
-                <th className={styles.th} style={{ textAlign: "right" }}>Mã định danh</th>
+                <th className={styles.th}>Mã định danh</th>
+                <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -101,8 +103,11 @@ export default async function StaffPage({ searchParams }: PageProps) {
                     <td className={styles.td}>
                       {new Date(staff.createdAt).toLocaleDateString("vi-VN")}
                     </td>
-                    <td className={styles.td} style={{ textAlign: "right", fontSize: "0.8rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                    <td className={styles.td} style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
                       {staff.id.substring(0, 8)}...
+                    </td>
+                    <td className={styles.td} style={{ textAlign: "right" }}>
+                      <DeleteStaffButton staffId={staff.id} staffName={staff.fullName} />
                     </td>
                   </tr>
                 );

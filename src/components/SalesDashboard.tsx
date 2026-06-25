@@ -146,6 +146,8 @@ export default function SalesDashboard({
   const [activeAppointment, setActiveAppointment] = useState<AppointmentProp | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showCheckInSuccessModal, setShowCheckInSuccessModal] = useState(false);
+  const [checkInSuccessAppt, setCheckInSuccessAppt] = useState<AppointmentProp | null>(null);
   
   // State for new appointment booking
   const [newApptCustomer, setNewApptCustomer] = useState("");
@@ -207,6 +209,13 @@ export default function SalesDashboard({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể check-in");
+
+      // Find the appointment to show in the check-in success modal
+      const appt = appointments.find((a) => a.id === appointmentId);
+      if (appt) {
+        setCheckInSuccessAppt(appt);
+        setShowCheckInSuccessModal(true);
+      }
 
       // Trigger router refresh to pull updated database states
       router.refresh();
@@ -584,6 +593,7 @@ export default function SalesDashboard({
                                   services={services}
                                   staffMembers={staff}
                                   onSuccess={handleInvoiceSuccess}
+                                  triggerId={`btn-use-service-${appt.customerId}`}
                                 />
                                 <button
                                   onClick={() => {
@@ -963,6 +973,129 @@ export default function SalesDashboard({
                   setActiveAppointment(null);
                 }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG 3: CHECK-IN SUCCESS MODAL */}
+      {showCheckInSuccessModal && checkInSuccessAppt && (
+        <div className={styles.modalOverlay} style={{ zIndex: 1100 }}>
+          <div className={styles.modalContent} style={{ maxWidth: "480px", padding: "2rem", borderRadius: "16px", background: "rgba(23, 23, 23, 0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(197, 160, 89, 0.3)", boxShadow: "0 12px 40px rgba(0, 0, 0, 0.6)" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-1.2rem", marginRight: "-1.2rem" }}>
+              <button 
+                onClick={() => {
+                  setShowCheckInSuccessModal(false);
+                  setCheckInSuccessAppt(null);
+                }} 
+                className={styles.closeBtn}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "0.5rem" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+              <div style={{
+                background: "rgba(45, 122, 96, 0.15)",
+                border: "1px solid rgba(45, 122, 96, 0.3)",
+                borderRadius: "50%",
+                padding: "1rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 20px rgba(45, 122, 96, 0.2)"
+              }}>
+                <Check size={36} style={{ color: "#34c759" }} />
+              </div>
+              
+              <h3 style={{ fontWeight: 800, fontSize: "1.35rem", color: "var(--text-primary)", marginTop: "0.5rem", letterSpacing: "-0.02em", textAlign: "center" }}>
+                Check-in Thành Công!
+              </h3>
+              
+              <p style={{ fontSize: "0.92rem", color: "var(--text-secondary)", textAlign: "center", lineHeight: "1.6", margin: "0 0 1.25rem 0" }}>
+                Khách hàng <span style={{ color: "var(--accent-gold)", fontWeight: 700 }}>{checkInSuccessAppt.customer.fullName}</span> đã được xác nhận đến Spa. Hãy chọn bước tiếp theo để phục vụ khách hàng:
+              </p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", width: "100%" }}>
+                <button
+                  onClick={() => {
+                    setShowCheckInSuccessModal(false);
+                    setActiveAppointment(checkInSuccessAppt);
+                    setShowInvoiceModal(true);
+                  }}
+                  className={`${styles.actionBtnSmall} ${styles.btnPrimary}`}
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    fontSize: "0.95rem",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    width: "100%",
+                    borderRadius: "8px",
+                    background: "linear-gradient(135deg, var(--accent-gold) 0%, #b38b36 100%)",
+                    color: "#000",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(197, 160, 89, 0.25)"
+                  }}
+                >
+                  <FileText size={16} /> Lập hóa đơn mua dịch vụ mới
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowCheckInSuccessModal(false);
+                    const apptCustId = checkInSuccessAppt.customerId;
+                    setCheckInSuccessAppt(null);
+                    setTimeout(() => {
+                      const btn = document.getElementById(`btn-use-service-${apptCustId}`);
+                      if (btn) {
+                        (btn as HTMLButtonElement).click();
+                      }
+                    }, 100);
+                  }}
+                  className={`${styles.actionBtnSmall}`}
+                  style={{
+                    padding: "0.8rem 1.5rem",
+                    fontSize: "0.95rem",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    width: "100%",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-color)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <Activity size={16} style={{ color: "var(--accent-gold)" }} /> Ghi nhận sử dụng liệu trình (Gói cũ)
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowCheckInSuccessModal(false);
+                    setCheckInSuccessAppt(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    marginTop: "0.5rem",
+                    alignSelf: "center"
+                  }}
+                >
+                  Chỉ check-in & Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>

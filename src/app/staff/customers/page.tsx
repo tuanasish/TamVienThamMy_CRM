@@ -56,9 +56,6 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const pendingSchedules = await db.installmentSchedule.findMany({
     where: {
       status: "pending",
-      invoice: {
-        installmentType: "counter",
-      },
     },
     select: {
       amount: true,

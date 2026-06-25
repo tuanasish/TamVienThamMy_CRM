@@ -38,8 +38,8 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId || !bookDate || !bookTime) {
-      setError("Vui lòng chọn dịch vụ và thời gian hẹn");
+    if (!bookDate || !bookTime) {
+      setError("Vui lòng chọn ngày và giờ hẹn");
       return;
     }
 
@@ -55,9 +55,9 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
     setError("");
     try {
       const selectedService = services.find((s) => s.id === serviceId);
-      const apptNotes = notes 
-        ? `${selectedService?.name}. Ghi chú: ${notes}`
-        : `${selectedService?.name}`;
+      const apptNotes = selectedService
+        ? (notes ? `${selectedService.name}. Ghi chú: ${notes}` : `${selectedService.name}`)
+        : notes;
 
       const response = await fetch("/api/appointments", {
         method: "POST",
@@ -104,34 +104,20 @@ export default function BookingForm({ customerId, services }: BookingFormProps) 
 
           {/* Dịch vụ */}
           <div className={styles.formGroup}>
-            <label className={styles.label}>Dịch vụ trị liệu mong muốn *</label>
+            <label className={styles.label}>Dịch vụ trị liệu mong muốn (Không bắt buộc)</label>
             <div className={styles.selectWrapper}>
               <select
                 className={styles.select}
                 value={serviceId}
                 onChange={(e) => setServiceId(e.target.value)}
-                required
                 disabled={loading}
               >
                 <option value="">-- Chọn dịch vụ --</option>
-                {services.filter((s) => s.isPurchased).length > 0 && (
-                  <optgroup label="Liệu trình bạn đã sở hữu (Đã thanh toán)">
-                    {services.filter((s) => s.isPurchased).map((s) => (
-                      <option key={`purchased-${s.id}`} value={s.id}>
-                        {s.name} (Còn {s.remainingSessions} buổi)
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {services.filter((s) => !s.isPurchased).length > 0 && (
-                  <optgroup label="Dịch vụ trị liệu khác (Tham khảo)">
-                    {services.filter((s) => !s.isPurchased).map((s) => (
-                      <option key={`other-${s.id}`} value={s.id}>
-                        {s.name} ({s.price.toLocaleString("vi-VN")}đ)
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
+                {services.filter((s) => s.isPurchased).map((s) => (
+                  <option key={`purchased-${s.id}`} value={s.id}>
+                    {s.name} (Còn {s.remainingSessions} buổi)
+                  </option>
+                ))}
               </select>
             </div>
           </div>

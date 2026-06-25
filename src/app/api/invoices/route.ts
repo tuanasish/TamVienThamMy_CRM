@@ -220,14 +220,32 @@ export async function POST(request: Request) {
               if (!service) throw new Error(`Không tìm thấy dịch vụ/sản phẩm có ID ${item.itemId}`);
               if (service.type === "service") {
                 const totalSessions = Number(item.totalSessions || itemQty || 1);
+                const initUsedSessions = item.useImmediately ? 1 : 0;
                 return tx.customerTreatment.create({
                   data: {
                     customerId,
                     serviceId: item.itemId,
                     totalSessions,
-                    usedSessions: 0,
+                    usedSessions: initUsedSessions,
                     pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
                   },
+                }).then(async (treatment) => {
+                  if (item.useImmediately) {
+                    await tx.usageLog.create({
+                      data: {
+                        customerId,
+                        serviceId: item.itemId,
+                        sourceType: "treatment",
+                        treatmentId: treatment.id,
+                        sessionsDeducted: 1,
+                        amountDeducted: 0,
+                        performedBy: item.technicianName || "Hệ thống",
+                        notes: item.sessionNotes ? `[Sử dụng ngay khi mua] ${item.sessionNotes}` : "[Sử dụng ngay khi mua]",
+                        staffId: staffId,
+                      }
+                    });
+                  }
+                  return treatment;
                 });
               }
             })

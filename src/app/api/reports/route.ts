@@ -160,13 +160,10 @@ export async function GET(request: Request) {
         },
       }),
 
-      // 2. All unpaid installments (current outstanding Spa debt)
+      // 2. All unpaid installments (current outstanding debt)
       db.installmentSchedule.findMany({
         where: {
           status: "pending",
-          invoice: {
-            installmentType: "counter",
-          },
         },
         select: {
           amount: true,
@@ -186,9 +183,6 @@ export async function GET(request: Request) {
           paidAt: {
             gte: startDate,
             lte: endDate,
-          },
-          invoice: {
-            installmentType: "counter",
           },
         },
         select: {

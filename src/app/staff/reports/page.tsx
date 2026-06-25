@@ -169,16 +169,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       },
     }),
 
-    // 2. Fetch Paid installments in range (only Spa's counter debt)
+    // 2. Fetch Paid installments in range
     db.installmentSchedule.findMany({
       where: {
         status: "paid",
         paidAt: {
           gte: startDate,
           lte: endDate,
-        },
-        invoice: {
-          installmentType: "counter",
         },
       },
       include: {
@@ -191,13 +188,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       },
     }),
 
-    // 3. Fetch unpaid schedules (current outstanding Spa debt)
+    // 3. Fetch unpaid schedules (current outstanding debt)
     db.installmentSchedule.findMany({
       where: {
         status: "pending",
-        invoice: {
-          installmentType: "counter",
-        },
       },
       include: {
         invoice: {

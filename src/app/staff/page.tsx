@@ -170,24 +170,18 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
       },
     }),
 
-    // Paid installments in selected range (only Spa's counter debt)
+    // Paid installments in selected range
     db.installmentSchedule.findMany({
       where: {
         status: "paid",
         paidAt: { gte: startDate, lte: endDate },
-        invoice: {
-          installmentType: "counter",
-        },
       },
     }),
 
-    // All unpaid installments (current outstanding Spa debt)
+    // All unpaid installments (current outstanding debt)
     db.installmentSchedule.findMany({
       where: {
         status: "pending",
-        invoice: {
-          installmentType: "counter",
-        },
       },
       select: {
         amount: true,
@@ -239,9 +233,6 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
     where: {
       status: "paid",
       paidAt: { gte: startDate, lte: endDate },
-      invoice: {
-        installmentType: "counter",
-      },
     },
     include: {
       invoice: {

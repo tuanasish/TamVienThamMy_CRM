@@ -18,7 +18,6 @@ export default async function DebtsPage({ searchParams }: PageProps) {
     where: {
       status: "pending",
       invoice: {
-        installmentType: "counter",
         customer: q
           ? {
               OR: [
