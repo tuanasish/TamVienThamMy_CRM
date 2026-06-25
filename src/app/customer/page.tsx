@@ -60,6 +60,33 @@ export default async function CustomerDashboard() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Lọc bỏ các cấu hình giao diện CMS (Bảng giá và Feedback) ra khỏi danh sách ưu đãi đăng ký dành cho khách hàng
+  const filteredPromotions = activePromotions.filter((p) => {
+    // Check if it's feedback (contains comma in image field)
+    const isFeedback = p.image && p.image.includes(",");
+    
+    // Check if it's a pricing list
+    const lines = p.description ? p.description.split("\n").map(l => l.trim()).filter(Boolean) : [];
+    let isPricing = lines.length > 0;
+    for (const line of lines) {
+      let separatorIndex = line.indexOf(":");
+      if (separatorIndex === -1) separatorIndex = line.indexOf("|");
+      if (separatorIndex === -1) separatorIndex = line.indexOf(" - ");
+      if (separatorIndex === -1) {
+        isPricing = false;
+        break;
+      }
+      const name = line.substring(0, separatorIndex).trim();
+      const offset = line.startsWith(" - ", separatorIndex) ? 3 : 1;
+      const price = line.substring(separatorIndex + offset).trim();
+      if (!name || !price) {
+        isPricing = false;
+        break;
+      }
+    }
+    return !isFeedback && !isPricing;
+  });
+
   // 3. Fetch Spa services for suggestions
   const spaServices = await db.service.findMany({
     orderBy: { name: "asc" },
@@ -137,7 +164,7 @@ export default async function CustomerDashboard() {
       {/* EXCLUSIVE PROMOTIONS (Requirement 1) */}
       <div id="promotions">
         <CustomerPromotions
-          promotions={activePromotions}
+          promotions={filteredPromotions}
           customerName={customer.fullName}
           customerPhone={customer.phone}
         />

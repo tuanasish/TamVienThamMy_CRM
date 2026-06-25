@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { Plus, Trash2, Check, X, Phone, Tag, Calendar, User, FileText, AlertCircle, Sparkles } from "lucide-react";
+import { Plus, Trash2, Check, X, Phone, Tag, Calendar, User, FileText, AlertCircle, Sparkles, RefreshCw } from "lucide-react";
 
 interface Promotion {
   id: string;
@@ -68,7 +68,7 @@ export default function PromotionDashboard({
   userRole,
 }: PromotionDashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"promos" | "leads">("leads"); // Default to leads to see signups
+  const [activeTab, setActiveTab] = useState<"leads" | "promos" | "cms">("leads"); // Mặc định hiển thị danh sách đăng ký
   const [promotions, setPromotions] = useState<Promotion[]>(initialPromotions);
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   
@@ -110,6 +110,19 @@ export default function PromotionDashboard({
   const [editFeedbackImgAfter, setEditFeedbackImgAfter] = useState("");
 
   // ==========================================
+  // PHÂN TÁCH DỮ LIỆU ĐỂ HIỂN THỊ RIÊNG BIỆT TRÊN 2 TAB
+  // ==========================================
+  // Tab 3: Chỉ hiển thị Bảng giá và Feedback (CMS Cốt lõi)
+  const cmsPromos = promotions.filter(
+    (p) => parsePricingDescription(p.description) || (p.image && p.image.includes(","))
+  );
+
+  // Tab 2: Chỉ hiển thị các ưu đãi/banner chiến dịch đăng ký thông thường
+  const standardPromos = promotions.filter(
+    (p) => !cmsPromos.some((c) => c.id === p.id)
+  );
+
+  // ==========================================
   // XỬ LÝ SỰ KIỆN MỞ POPUP SỬA (DESERIALIZE)
   // ==========================================
   const handleOpenEditModal = (promo: Promotion) => {
@@ -118,7 +131,6 @@ export default function PromotionDashboard({
     setEditIsActive(promo.isActive);
     setError("");
 
-    // Phân loại và tự động chuyển đổi sang giao diện CMS tương ứng
     const isFeedback = promo.image && promo.image.includes(",");
     const parsedPricing = parsePricingDescription(promo.description);
 
@@ -157,6 +169,63 @@ export default function PromotionDashboard({
   };
 
   // ==========================================
+  // XỬ LÝ KHỞI TẠO LẠI CẤU HÌNH CMS MẪU CHUẨN
+  // ==========================================
+  const handleInitializeDefaultCMS = async () => {
+    if (!confirm("Bạn có chắc chắn muốn khởi tạo cấu hình giao diện mẫu? Hành động này sẽ nạp lại Bảng giá và Feedback chuẩn của Viện Thẩm Mỹ Tấm vào hệ thống.")) return;
+    
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      // 1. Tạo bảng giá dịch vụ mặc định
+      const pricingRes = await fetch("/api/promotions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Dịch vụ trẻ hóa da",
+          description: 
+            "Meso không kim Infusion FreshTech: 1.000.000\n" +
+            "CSD Cấp Tốc LS 2025: 1.000.000\n" +
+            "Dr.Young Skin Mặt: 8.000.000\n" +
+            "Dr.Young Neo Collagen Mặt: 14.000.000",
+          image: null,
+          isActive: true,
+        }),
+      });
+      
+      const pricingData = await pricingRes.json();
+      if (!pricingRes.ok) throw new Error(pricingData.error || "Không thể khởi tạo bảng giá mẫu");
+
+      // 2. Tạo feedback mặc định
+      const feedbackRes = await fetch("/api/promotions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "TẤM",
+          description: "Hơn 30 sao Việt, 400 doanh nhân và hàng chục nghìn khách hàng chia sẻ những hình ảnh, câu chuyện thực tế khi làm đẹp tại Viện Thẩm Mỹ Tấm",
+          image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?q=80&w=400, https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400, https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=400",
+          isActive: true,
+        }),
+      });
+      
+      const feedbackData = await feedbackRes.json();
+      if (!feedbackRes.ok) throw new Error(feedbackData.error || "Không thể khởi tạo feedback mẫu");
+
+      setSuccess("Đã nạp thành công Bảng giá & Feedback chuẩn của Viện Thẩm Mỹ Tấm!");
+      setPromotions([pricingData, feedbackData, ...promotions]);
+      
+      router.refresh();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
   // XỬ LÝ LƯU THÊM MỚI (SERIALIZE)
   // ==========================================
   const handleCreatePromo = async (e: React.FormEvent) => {
@@ -170,12 +239,10 @@ export default function PromotionDashboard({
     setError("");
     setSuccess("");
 
-    // Chuẩn bị dữ liệu dựa trên Loại hiển thị (CMS)
     let finalDescription = description;
     let finalImage: string | null = image || null;
 
     if (promoType === "pricing") {
-      // Tuần tự hóa bảng giá thành dạng "Tên dịch vụ: Giá" trên từng dòng
       const validRows = pricingRows.filter(r => r.name.trim() && r.price.trim());
       if (validRows.length === 0) {
         setError("Vui lòng nhập ít nhất một dòng dịch vụ đầy đủ thông tin");
@@ -185,7 +252,6 @@ export default function PromotionDashboard({
       finalDescription = validRows.map(r => `${r.name.trim()}: ${r.price.trim()}`).join("\n");
       finalImage = null;
     } else if (promoType === "feedback") {
-      // Tuần tự hóa 3 ảnh feedback thành danh sách ngăn cách bằng dấu phẩy
       if (!description.trim()) {
         setError("Vui lòng nhập nội dung chia sẻ thực tế của khách hàng");
         setLoading(false);
@@ -223,7 +289,7 @@ export default function PromotionDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể tạo ưu đãi");
 
-      setSuccess("Tạo chương trình ưu đãi mới thành công!");
+      setSuccess("Tạo mới thành công!");
       setPromotions([data, ...promotions]);
       
       // Reset form
@@ -253,7 +319,7 @@ export default function PromotionDashboard({
   const handleUpdatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPromo || !editTitle) {
-      setError("Vui lòng nhập tiêu đề chương trình");
+      setError("Vui lòng nhập tiêu đề");
       return;
     }
 
@@ -261,7 +327,6 @@ export default function PromotionDashboard({
     setError("");
     setSuccess("");
 
-    // Chuẩn bị dữ liệu dựa trên Loại hiển thị (CMS)
     let finalDescription = editDescription;
     let finalImage: string | null = editImage || null;
 
@@ -312,7 +377,7 @@ export default function PromotionDashboard({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Không thể cập nhật ưu đãi");
 
-      setSuccess("Cập nhật chương trình ưu đãi thành công!");
+      setSuccess("Cập nhật thành công!");
       setPromotions(promotions.map((p) => (p.id === editingPromo.id ? data : p)));
       setShowEditModal(false);
       setEditingPromo(null);
@@ -327,7 +392,7 @@ export default function PromotionDashboard({
   };
 
   const handleDeletePromo = async (promoId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa chương trình ưu đãi này? Khách hàng sẽ không còn nhìn thấy chương trình này nữa.")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa mục này? Nội dung hiển thị tương ứng trên cổng Khách hàng sẽ bị gỡ bỏ.")) return;
     
     setError("");
     setSuccess("");
@@ -338,9 +403,9 @@ export default function PromotionDashboard({
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể xóa ưu đãi");
+      if (!response.ok) throw new Error(data.error || "Không thể xóa");
 
-      setSuccess("Đã xóa chương trình ưu đãi.");
+      setSuccess("Đã xóa thành công.");
       setPromotions(promotions.filter((p) => p.id !== promoId));
       
       router.refresh();
@@ -360,7 +425,7 @@ export default function PromotionDashboard({
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể cập nhật ưu đãi");
+      if (!response.ok) throw new Error(data.error || "Không thể cập nhật");
 
       setPromotions(promotions.map((p) => (p.id === promoId ? data : p)));
       router.refresh();
@@ -423,7 +488,7 @@ export default function PromotionDashboard({
 
   return (
     <div className={styles.dashboardContainer}>
-      {/* Tab Selectors */}
+      {/* Hệ thống 3 Tab Phân khu chuyên nghiệp */}
       <div className={styles.tabContainer}>
         <button
           onClick={() => { setActiveTab("leads"); setError(""); }}
@@ -437,14 +502,23 @@ export default function PromotionDashboard({
           className={`${styles.tabBtn} ${activeTab === "promos" ? styles.tabActive : ""}`}
         >
           <Tag size={16} style={{ marginRight: "0.4rem" }} />
-          Chương trình ưu đãi đang chạy ({promotions.length})
+          Chương trình ưu đãi đang chạy ({standardPromos.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab("cms"); setError(""); }}
+          className={`${styles.tabBtn} ${activeTab === "cms" ? styles.tabActive : ""}`}
+        >
+          <Sparkles size={16} style={{ marginRight: "0.4rem" }} />
+          Cấu hình giao diện trang chủ ({cmsPromos.length})
         </button>
       </div>
 
       {error && <div className={styles.errorAlert} style={{ marginTop: "1rem" }}>{error}</div>}
       {success && <div className={styles.successAlert} style={{ marginTop: "1rem" }}>{success}</div>}
 
-      {/* TABS CONTENT 1: REGISTRATIONS LIST */}
+      {/* ==========================================
+          TAB CONTENT 1: REGISTRATIONS LIST
+          ========================================== */}
       {activeTab === "leads" && (
         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
           <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Khách hàng đăng ký giữ suất ưu đãi</h3>
@@ -516,74 +590,163 @@ export default function PromotionDashboard({
         </div>
       )}
 
-      {/* TABS CONTENT 2: PROMOTIONS LIST */}
+      {/* ==========================================
+          TAB CONTENT 2: STANDARD PROMOTIONS ONLY
+          ========================================== */}
       {activeTab === "promos" && (
         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Quản lý chương trình khuyến mãi</h3>
+            <div>
+              <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Chương trình ưu đãi đang chạy</h3>
+              <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: "0.2rem 0 0 0" }}>
+                Tạo và quản lý các banner ưu đãi, sự kiện khuyến mãi có nút "Đăng ký giữ chỗ" hiển thị trên cổng Khách hàng.
+              </p>
+            </div>
             <button onClick={() => { setPromoType("banner"); setShowAddModal(true); }} className={styles.addBtn}>
               <Plus size={16} style={{ marginRight: "0.25rem" }} />
               Tạo ưu đãi mới
             </button>
           </div>
 
-          {promotions.length === 0 ? (
+          {standardPromos.length === 0 ? (
             <div className={styles.sectionCard}>
               <div className={styles.emptyState}>
                 <AlertCircle size={40} className={styles.emptyIcon} />
-                <p className={styles.emptyText}>Chưa có chương trình ưu đãi nào được tạo. Hãy tạo mới ngay để hiển thị trên cổng Khách hàng!</p>
+                <p className={styles.emptyText}>Hiện tại chưa có chương trình khuyến mãi nào được tạo.</p>
               </div>
             </div>
           ) : (
             <div className={styles.promoGrid}>
-              {promotions.map((promo) => {
+              {standardPromos.map((promo) => (
+                <div key={promo.id} className={`${styles.promoCard} ${!promo.isActive ? styles.promoCardInactive : ""}`}>
+                  <div className={styles.promoCardHeader}>
+                    <div>
+                      <h4 className={styles.promoTitle}>{promo.title}</h4>
+                    </div>
+                    <span className={`${styles.badge} ${promo.isActive ? styles.badgeActive : styles.badgeInactive}`}>
+                      {promo.isActive ? "Đang chạy" : "Tạm ngưng"}
+                    </span>
+                  </div>
+                  
+                  <p className={styles.promoDesc}>{promo.description}</p>
+                  
+                  {promo.image && (
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic", marginBottom: "0.5rem", wordBreak: "break-all" }}>
+                      Link ảnh: {promo.image}
+                    </div>
+                  )}
+
+                  <div className={styles.promoCardActions}>
+                    <button
+                      onClick={() => handleOpenEditModal(promo)}
+                      className={styles.actionBtnSmall}
+                      style={{ backgroundColor: "var(--accent-gold)", color: "#ffffff", border: "none" }}
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
+                      className={`${styles.actionBtnSmall} ${promo.isActive ? styles.btnWarning : styles.btnSuccess}`}
+                    >
+                      {promo.isActive ? "Tạm tắt" : "Bật lại"}
+                    </button>
+                    <button
+                      onClick={() => handleDeletePromo(promo.id)}
+                      className={`${styles.actionBtnSmall} ${styles.btnDanger}`}
+                    >
+                      <Trash2 size={14} style={{ marginRight: "0.25rem" }} /> Xóa
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==========================================
+          TAB CONTENT 3: HOMEPAGE CMS (PRICING & TESTIMONIAL)
+          ========================================== */}
+      {activeTab === "cms" && (
+        <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Cấu hình giao diện trang chủ</h3>
+              <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: "0.2rem 0 0 0" }}>
+                Chỉnh sửa trực quan Bảng giá dịch vụ và các thẻ ảnh Feedback Trước/Sau hiển thị trên trang giới thiệu.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {cmsPromos.length < 2 && (
+                <button 
+                  onClick={handleInitializeDefaultCMS} 
+                  className={styles.addBtn}
+                  style={{ backgroundColor: "rgba(223, 183, 108, 0.1)", color: "var(--accent-gold)", border: "1px solid var(--accent-gold)" }}
+                  disabled={loading}
+                >
+                  <RefreshCw size={14} style={{ marginRight: "0.25rem" }} />
+                  Khởi tạo cấu hình mẫu
+                </button>
+              )}
+              <button onClick={() => { setPromoType("pricing"); setShowAddModal(true); }} className={styles.addBtn}>
+                <Plus size={16} style={{ marginRight: "0.25rem" }} />
+                Tạo cấu hình CMS mới
+              </button>
+            </div>
+          </div>
+
+          {cmsPromos.length === 0 ? (
+            <div className={styles.sectionCard}>
+              <div className={styles.emptyState}>
+                <AlertCircle size={40} className={styles.emptyIcon} />
+                <p className={styles.emptyText}>Chưa có cấu hình giao diện động nào trong database. Hãy bấm nút "Khởi tạo cấu hình mẫu" ở trên để nạp nhanh bảng giá và feedback của Viện Thẩm Mỹ Tấm!</p>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.promoGrid}>
+              {cmsPromos.map((promo) => {
                 const parsedPricing = parsePricingDescription(promo.description);
                 const isFeedback = promo.image && promo.image.includes(",");
-                let badgeText = "Banner quảng cáo";
-                if (parsedPricing) badgeText = "Bảng giá dịch vụ";
-                if (isFeedback) badgeText = "Testimonial / Feedback";
+                const cardBadge = parsedPricing ? "BẢNG GIÁ DỊCH VỤ" : "FEEDBACK KHÁCH HÀNG (REAL STORY)";
 
                 return (
                   <div key={promo.id} className={`${styles.promoCard} ${!promo.isActive ? styles.promoCardInactive : ""}`}>
                     <div className={styles.promoCardHeader}>
                       <div>
                         <h4 className={styles.promoTitle}>{promo.title}</h4>
-                        <span style={{ fontSize: "0.72rem", color: "var(--accent-gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                          [{badgeText}]
+                        <span style={{ fontSize: "0.72rem", color: "var(--accent-gold)", fontWeight: 850, letterSpacing: "0.03em" }}>
+                          {cardBadge}
                         </span>
                       </div>
                       <span className={`${styles.badge} ${promo.isActive ? styles.badgeActive : styles.badgeInactive}`}>
-                        {promo.isActive ? "Đang chạy" : "Tạm ngưng"}
+                        {promo.isActive ? "Đang hiện" : "Đang ẩn"}
                       </span>
                     </div>
-                    
-                    {parsedPricing ? (
-                      <div style={{ background: "rgba(223,183,108,0.02)", border: "1px dashed rgba(223,183,108,0.2)", borderRadius: "8px", padding: "0.75rem", margin: "0.75rem 0" }}>
-                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", marginBottom: "0.5rem" }}>Danh sách cột giá trị (CMS):</div>
+
+                    {/* Hiển thị tóm tắt Bảng giá dịch vụ động */}
+                    {parsedPricing && (
+                      <div style={{ background: "rgba(223,183,108,0.02)", border: "1px dashed rgba(223,183,108,0.2)", borderRadius: "12px", padding: "0.85rem", margin: "0.75rem 0" }}>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", marginBottom: "0.5rem" }}>Cấu trúc các dòng dịch vụ trong bảng (CMS):</div>
                         {parsedPricing.map((row, idx) => (
-                          <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", padding: "0.2rem 0", borderBottom: idx === parsedPricing.length - 1 ? "none" : "1px solid rgba(255,255,255,0.05)" }}>
+                          <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", padding: "0.3rem 0", borderBottom: idx === parsedPricing.length - 1 ? "none" : "1px solid rgba(255,255,255,0.05)" }}>
                             <span style={{ color: "var(--text-secondary)" }}>{row.name}</span>
-                            <span style={{ fontWeight: "bold" }}>{row.price}</span>
+                            <span style={{ fontWeight: "bold" }}>{row.price} Vnđ</span>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className={styles.promoDesc}>{promo.description}</p>
-                    )}
-                    
-                    {promo.image && !isFeedback && (
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic", marginBottom: "0.5rem", wordBreak: "break-all" }}>
-                        Link ảnh: {promo.image}
-                      </div>
                     )}
 
+                    {/* Hiển thị tóm tắt Feedback 3 ảnh */}
                     {isFeedback && (
-                      <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: "8px", padding: "0.75rem", margin: "0.75rem 0" }}>
-                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", marginBottom: "0.3rem" }}>Dàn 3 ảnh Trước/Sau (CMS):</div>
-                        <div style={{ display: "flex", gap: "0.4rem", fontSize: "0.7rem", color: "var(--text-secondary)", wordBreak: "break-all", flexDirection: "column" }}>
-                          <div>• Ảnh trước: {promo.image?.split(",")[0]?.trim()}</div>
-                          <div>• Sau 1 buổi: {promo.image?.split(",")[1]?.trim()}</div>
-                          <div>• Sau liệu trình: {promo.image?.split(",")[2]?.trim()}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", margin: "0.75rem 0" }}>
+                        <p className={styles.promoDesc} style={{ marginBottom: "0.5rem", fontStyle: "italic" }}>"{promo.description}"</p>
+                        <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: "12px", padding: "0.85rem", border: "1px solid var(--border-color)" }}>
+                          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", marginBottom: "0.4rem" }}>Bộ 3 ảnh Trước/Sau (CMS):</div>
+                          <div style={{ display: "flex", gap: "0.4rem", fontSize: "0.7rem", color: "var(--text-secondary)", flexDirection: "column" }}>
+                            <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>• <strong>Ảnh trước:</strong> {promo.image?.split(",")[0]?.trim()}</div>
+                            <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>• <strong>Sau 1 buổi:</strong> {promo.image?.split(",")[1]?.trim()}</div>
+                            <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>• <strong>Sau liệu trình:</strong> {promo.image?.split(",")[2]?.trim()}</div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -600,7 +763,7 @@ export default function PromotionDashboard({
                         onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
                         className={`${styles.actionBtnSmall} ${promo.isActive ? styles.btnWarning : styles.btnSuccess}`}
                       >
-                        {promo.isActive ? "Tạm tắt" : "Bật lại"}
+                        {promo.isActive ? "Tạm ẩn" : "Hiện lại"}
                       </button>
                       <button
                         onClick={() => handleDeletePromo(promo.id)}
@@ -618,13 +781,15 @@ export default function PromotionDashboard({
       )}
 
       {/* ==========================================
-          MODAL 1: CREATE PROMOTION MODAL (CMS STYLE)
+          MODAL 1: CREATE PROMOTION/CMS MODAL
           ========================================== */}
       {showAddModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent} style={{ maxWidth: "600px" }}>
             <div className={styles.modalHeader}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.15rem", color: "var(--text-primary)" }}>Tạo cấu hình hiển thị mới (CMS)</h3>
+              <h3 style={{ fontWeight: 700, fontSize: "1.15rem", color: "var(--text-primary)" }}>
+                {activeTab === "cms" ? "Tạo cấu hình giao diện mới (CMS)" : "Tạo chương trình ưu đãi mới"}
+              </h3>
               <button onClick={() => setShowAddModal(false)} className={styles.closeBtn}>
                 <X size={20} />
               </button>
@@ -633,7 +798,7 @@ export default function PromotionDashboard({
             <form onSubmit={handleCreatePromo} className={styles.form}>
               {/* Dropdown chọn loại hiển thị */}
               <div className={styles.formGroup}>
-                <label className={styles.label}>Loại hiển thị trên trang chủ *</label>
+                <label className={styles.label}>Loại hiển thị cấu hình *</label>
                 <select
                   className={styles.input}
                   value={promoType}
@@ -641,16 +806,22 @@ export default function PromotionDashboard({
                   disabled={loading}
                   style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", cursor: "pointer" }}
                 >
-                  <option value="banner">Banner quảng cáo tiêu chuẩn (1 hình ảnh)</option>
-                  <option value="pricing">Bảng giá dịch vụ (Dạng bảng cột)</option>
-                  <option value="feedback">Nhật ký khách hàng - Real Story (3 ảnh Trước/Sau)</option>
+                  {activeTab === "promos" ? (
+                    <option value="banner">Banner quảng cáo tiêu chuẩn (1 hình ảnh)</option>
+                  ) : (
+                    <>
+                      <option value="pricing">Bảng giá dịch vụ (Dạng bảng cột)</option>
+                      <option value="feedback">Nhật ký khách hàng - Real Story (3 ảnh Trước/Sau)</option>
+                      <option value="banner">Banner quảng cáo tiêu chuẩn (1 hình ảnh)</option>
+                    </>
+                  )}
                 </select>
               </div>
 
-              {/* Tiêu đề chung */}
+              {/* Tiêu đề */}
               <div className={styles.formGroup}>
                 <label className={styles.label}>
-                  {promoType === "pricing" ? "Tiêu đề bảng giá * (Ví dụ: Dịch vụ nổi bật)" : "Tiêu đề ưu đãi / Tên khách hàng * (Ví dụ: TẤM)"}
+                  {promoType === "pricing" ? "Tiêu đề bảng giá * (Ví dụ: Dịch vụ nổi bật)" : "Tiêu đề hiển thị / Tên khách hàng * (Ví dụ: TẤM)"}
                 </label>
                 <input
                   type="text"
@@ -663,7 +834,7 @@ export default function PromotionDashboard({
                 />
               </div>
 
-              {/* PHẦN 1: BẢNG GIÁ DỊCH VỤ (DẠNG HÀNG ĐỘNG - TABLE EDITOR) */}
+              {/* DẠNG 1: BẢNG GIÁ DỊCH VỤ (CMS ROWS EDITOR) */}
               {promoType === "pricing" && (
                 <div className={styles.formGroup}>
                   <label className={styles.label} style={{ marginBottom: "0.75rem" }}>Danh sách cột dịch vụ & giá bán *</label>
@@ -725,7 +896,7 @@ export default function PromotionDashboard({
                 </div>
               )}
 
-              {/* PHẦN 2: BANNER QUẢNG CÁO TIÊU CHUẨN */}
+              {/* DẠNG 2: BANNER QUẢNG CÁO TIÊU CHUẨN */}
               {promoType === "banner" && (
                 <>
                   <div className={styles.formGroup}>
@@ -755,7 +926,7 @@ export default function PromotionDashboard({
                 </>
               )}
 
-              {/* PHẦN 3: NHẬT KÝ KHÁCH HÀNG (FEEDBACK/TESTIMONIAL) */}
+              {/* DẠNG 3: NHẬT KÝ KHÁCH HÀNG (CMS PHOTO GRID EDITOR) */}
               {promoType === "feedback" && (
                 <>
                   <div className={styles.formGroup}>
@@ -814,7 +985,7 @@ export default function PromotionDashboard({
                 </>
               )}
 
-              {/* Kích hoạt ngay */}
+              {/* Kích hoạt hiển thị */}
               <div className={styles.formGroup} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <input
                   type="checkbox"
@@ -827,13 +998,13 @@ export default function PromotionDashboard({
                 <label htmlFor="isActive" style={{ fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>Kích hoạt hiển thị cho Khách hàng ngay lập tức</label>
               </div>
 
-              {/* Thao tác gửi */}
+              {/* Nút thao tác */}
               <div className={styles.formActions}>
                 <button type="button" onClick={() => setShowAddModal(false)} className={styles.cancelBtn} disabled={loading}>
                   Hủy bỏ
                 </button>
                 <button type="submit" className={styles.submitBtn} disabled={loading}>
-                  {loading ? "Đang xử lý..." : "Tạo hiển thị"}
+                  {loading ? "Đang xử lý..." : "Lưu cấu hình"}
                 </button>
               </div>
             </form>
@@ -842,7 +1013,7 @@ export default function PromotionDashboard({
       )}
 
       {/* ==========================================
-          MODAL 2: EDIT PROMOTION MODAL (CMS STYLE)
+          MODAL 2: EDIT PROMOTION/CMS MODAL
           ========================================== */}
       {showEditModal && editingPromo && (
         <div className={styles.modalOverlay}>
@@ -857,7 +1028,7 @@ export default function PromotionDashboard({
             <form onSubmit={handleUpdatePromo} className={styles.form}>
               {/* Dropdown chọn loại hiển thị */}
               <div className={styles.formGroup}>
-                <label className={styles.label}>Loại hiển thị trên trang chủ *</label>
+                <label className={styles.label}>Loại hiển thị cấu hình *</label>
                 <select
                   className={styles.input}
                   value={editPromoType}
@@ -871,10 +1042,10 @@ export default function PromotionDashboard({
                 </select>
               </div>
 
-              {/* Tiêu đề chung */}
+              {/* Tiêu đề */}
               <div className={styles.formGroup}>
                 <label className={styles.label}>
-                  {editPromoType === "pricing" ? "Tiêu đề bảng giá * (Ví dụ: Dịch vụ nổi bật)" : "Tiêu đề ưu đãi / Tên khách hàng * (Ví dụ: TẤM)"}
+                  {editPromoType === "pricing" ? "Tiêu đề bảng giá * (Ví dụ: Dịch vụ nổi bật)" : "Tiêu đề hiển thị / Tên khách hàng * (Ví dụ: TẤM)"}
                 </label>
                 <input
                   type="text"
@@ -886,7 +1057,7 @@ export default function PromotionDashboard({
                 />
               </div>
 
-              {/* PHẦN 1: BẢNG GIÁ DỊCH VỤ (DẠNG HÀNG ĐỘNG - TABLE EDITOR) */}
+              {/* DẠNG 1: BẢNG GIÁ DỊCH VỤ (CMS ROWS EDITOR) */}
               {editPromoType === "pricing" && (
                 <div className={styles.formGroup}>
                   <label className={styles.label} style={{ marginBottom: "0.75rem" }}>Danh sách cột dịch vụ & giá bán *</label>
@@ -948,7 +1119,7 @@ export default function PromotionDashboard({
                 </div>
               )}
 
-              {/* PHẦN 2: BANNER QUẢNG CÁO TIÊU CHUẨN */}
+              {/* DẠNG 2: BANNER QUẢNG CÁO TIÊU CHUẨN */}
               {editPromoType === "banner" && (
                 <>
                   <div className={styles.formGroup}>
@@ -978,7 +1149,7 @@ export default function PromotionDashboard({
                 </>
               )}
 
-              {/* PHẦN 3: NHẬT KÝ KHÁCH HÀNG (FEEDBACK/TESTIMONIAL) */}
+              {/* DẠNG 3: NHẬT KÝ KHÁCH HÀNG (CMS PHOTO GRID EDITOR) */}
               {editPromoType === "feedback" && (
                 <>
                   <div className={styles.formGroup}>
@@ -1037,7 +1208,7 @@ export default function PromotionDashboard({
                 </>
               )}
 
-              {/* Kích hoạt ngay */}
+              {/* Kích hoạt hiển thị */}
               <div className={styles.formGroup} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <input
                   type="checkbox"
@@ -1050,7 +1221,7 @@ export default function PromotionDashboard({
                 <label htmlFor="editIsActive" style={{ fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>Kích hoạt hiển thị cho Khách hàng</label>
               </div>
 
-              {/* Thao tác gửi */}
+              {/* Nút thao tác */}
               <div className={styles.formActions}>
                 <button type="button" onClick={() => { setShowEditModal(false); setEditingPromo(null); }} className={styles.cancelBtn} disabled={loading}>
                   Hủy bỏ

@@ -229,9 +229,9 @@ function LoginForm() {
     }
   }
 
-  // 3. Banner Ưu đãi (1 ảnh đơn lẻ, không phải feedback hay bảng giá động)
-  const bannerPromo = promotions.find(
-    (p) => p.image && !p.image.includes(",") && p.id !== feedbackPromo?.id && p.id !== dynamicPricingPromo?.id
+  // 3. Banner Ưu đãi đang chạy (Tất cả ưu đãi chiến dịch không phải feedback hay bảng giá động)
+  const bannerPromos = promotions.filter(
+    (p) => p.id !== feedbackPromo?.id && p.id !== dynamicPricingPromo?.id
   );
 
   const defaultFeedbackPromo = {
@@ -278,48 +278,46 @@ function LoginForm() {
 
         {/* 2. KHUNG NỘI DUNG CUỘN CHÍNH */}
         <div className="landing-container">
-          {/* PHẦN 1: CHƯƠNG TRÌNH ƯU ĐÃI (BẢNG GIÁ HOẶC BANNER) */}
-          {dynamicPricingPromo && dynamicPricingRows ? (
-            // Nếu có bảng giá động được admin nhập trong database -> hiển thị bảng giá động đó
-            <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
-              <PricingListFallback 
-                title={dynamicPricingPromo.title}
-                rows={dynamicPricingRows}
-                onRegisterClick={() => setIsLoginModalOpen(true)} 
-              />
-            </section>
-          ) : bannerPromo ? (
-            // Nếu có banner ưu đãi bằng ảnh của nhân viên -> hiển thị banner ảnh
-            <section className="custom-banner-section">
-              <div style={{ textAlign: "center" }}>
-                <span className="banner-sub">Chương Trình Ưu Đãi Đặc Biệt</span>
-                <h3 className="banner-title">{bannerPromo.title}</h3>
-                <p className="banner-desc">{bannerPromo.description}</p>
-              </div>
+          {/* PHẦN 1: CHƯƠNG TRÌNH ƯU ĐÃI ĐANG CHẠY (BANNER CHIẾN DỊCH) */}
+          {bannerPromos.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+              {bannerPromos.map((banner) => (
+                <section key={banner.id} className="custom-banner-section">
+                  <div style={{ textAlign: "center" }}>
+                    <span className="banner-sub">Chương Trình Ưu Đãi Đang Chạy</span>
+                    <h3 className="banner-title">{banner.title}</h3>
+                    <p className="banner-desc">{banner.description}</p>
+                  </div>
 
-              {bannerPromo.image && (
-                <div className="banner-image-container">
-                  <img src={bannerPromo.image} alt={bannerPromo.title} />
-                </div>
-              )}
-              
-              {/* Nút mở popup đăng nhập khi hiển thị banner tùy chỉnh */}
-              <div style={{ textAlign: "center", marginTop: "2rem" }}>
-                <button 
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="banner-cta-btn"
-                >
-                  <LogIn size={16} />
-                  Tra Cứu Lịch Hẹn & Liệu Trình
-                </button>
-              </div>
-            </section>
-          ) : (
-            // Nếu không có cả 2 -> Hiển thị bảng giá mặc định
-            <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
-              <PricingListFallback onRegisterClick={() => setIsLoginModalOpen(true)} />
-            </section>
+                  {banner.image && (
+                    <div className="banner-image-container">
+                      <img src={banner.image} alt={banner.title} />
+                    </div>
+                  )}
+                  
+                  {/* Nút mở popup đăng nhập khi hiển thị banner tùy chỉnh */}
+                  <div style={{ textAlign: "center", marginTop: "2rem" }}>
+                    <button 
+                      onClick={() => setIsLoginModalOpen(true)}
+                      className="banner-cta-btn pulse-red-btn"
+                    >
+                      <LogIn size={16} />
+                      Đăng Nhập Nhận Ưu Đãi
+                    </button>
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
+
+          {/* PHẦN 2: BẢNG GIÁ DỊCH VỤ (Cấu hình giao diện trang chủ - CMS) */}
+          <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
+            <PricingListFallback 
+              title={dynamicPricingPromo?.title || "Dịch vụ nổi bật"}
+              rows={dynamicPricingRows || undefined}
+              onRegisterClick={() => setIsLoginModalOpen(true)} 
+            />
+          </section>
 
           {/* PHẦN 2: NHẬT KÝ KHÁCH HÀNG - REAL STORY */}
           {activeFeedback && (
