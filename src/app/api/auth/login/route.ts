@@ -49,6 +49,7 @@ export async function POST(request: Request) {
         id: staff.id,
         fullName: staff.fullName,
         role: "staff",
+        dbRole: staff.role,
       }), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

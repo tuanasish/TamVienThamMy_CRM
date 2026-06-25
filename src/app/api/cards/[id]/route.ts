@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { verifyAdmin } from "@/lib/auth";
 
 // PUT edit card template
 export async function PUT(
@@ -7,6 +8,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json();
     const { name, price, value, services } = body;
@@ -49,6 +53,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const { id } = await params;
 
     // Check if any active customer card references this template

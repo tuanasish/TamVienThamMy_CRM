@@ -476,7 +476,18 @@ export default function AppointmentsManager({
                       </div>
                     </td>
                     <td className={styles.td}>
-                      <div style={{ fontWeight: 600 }}>{appt.customer.fullName}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        <div style={{ fontWeight: 600 }}>{appt.customer.fullName}</div>
+                        {appt.status === "checked_in" ? (
+                          <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(45, 122, 96, 0.15)", color: "#2d7a60", fontWeight: "bold" }}>
+                            Đã đến
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: "4px", background: "rgba(255, 193, 7, 0.15)", color: "#b38b36", fontWeight: "bold" }}>
+                            Chờ
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{appt.customer.phone}</div>
                     </td>
                     <td className={styles.td} style={{ maxWidth: "250px", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -487,7 +498,19 @@ export default function AppointmentsManager({
                       )}
                     </td>
                     <td className={styles.td} style={{ textAlign: "right" }}>
-                      <div className={styles.btnGroup}>
+                      <div className={styles.btnGroup} style={{ justifyContent: "flex-end", flexWrap: "wrap", gap: "0.35rem" }}>
+                        {appt.status === "pending" && (
+                          <button
+                            onClick={() => handleCheckIn(appt.id)}
+                            disabled={loading}
+                            className={styles.actionBtn}
+                            style={{ background: "rgba(40, 167, 69, 0.1)", color: "#28a745", borderColor: "rgba(40, 167, 69, 0.3)" }}
+                            title="Xác nhận khách tới (Check-in)"
+                          >
+                            <Check size={14} /> Check in
+                          </button>
+                        )}
+
                         <button
                           onClick={() => openEditModal(appt)}
                           disabled={loading}

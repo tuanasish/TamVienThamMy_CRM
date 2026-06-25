@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { verifyAdmin } from "@/lib/auth";
 
 // GET all card templates
 export async function GET() {
@@ -29,6 +30,9 @@ export async function GET() {
 // POST create card template
 export async function POST(request: Request) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const body = await request.json();
     const { name, price, value, services } = body;
 

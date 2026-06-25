@@ -2,7 +2,10 @@ import { db } from "@/lib/db";
 import styles from "./page.module.css";
 import AddStaffModal from "@/components/AddStaffModal";
 import DeleteStaffButton from "@/components/DeleteStaffButton";
+import EditStaffTargetButton from "@/components/EditStaffTargetButton";
 import { Search, ShieldAlert, User, ShieldCheck } from "lucide-react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>;
@@ -15,6 +18,57 @@ export const metadata = {
 };
 
 export default async function StaffPage({ searchParams }: PageProps) {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("spa_crm_session");
+  if (!sessionCookie) redirect("/login?role=staff");
+
+  let parsed;
+  try {
+    parsed = JSON.parse(sessionCookie.value);
+  } catch (e) {
+    redirect("/login?role=staff");
+  }
+
+  // Fetch live role from DB
+  const dbStaff = await db.staff.findUnique({
+    where: { id: parsed.id },
+    select: { role: true }
+  });
+
+  if (dbStaff?.role !== "admin") {
+    return (
+      <div style={{
+        padding: "5rem 2rem",
+        textAlign: "center",
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        boxShadow: "var(--shadow-sm)",
+        maxWidth: "600px",
+        margin: "4rem auto"
+      }}>
+        <ShieldAlert size={48} style={{ color: "var(--accent-rose)", marginBottom: "1.5rem" }} />
+        <h2 style={{ color: "var(--accent-rose)", fontWeight: 800, fontSize: "1.8rem", marginBottom: "1rem", marginTop: 0 }}>
+          Không có quyền truy cập
+        </h2>
+        <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", fontSize: "0.95rem" }}>
+          Khu vực này chứa thông tin bảo mật và chỉ dành riêng cho Quản trị viên (Admin).
+        </p>
+        <a href="/staff" style={{
+          padding: "0.6rem 1.5rem",
+          background: "var(--grad-premium)",
+          color: "white",
+          borderRadius: "var(--radius-sm)",
+          fontWeight: "700",
+          textDecoration: "none",
+          boxShadow: "0 2px 8px rgba(197,160,89,0.2)"
+        }}>
+          Quay lại Trang chủ
+        </a>
+      </div>
+    );
+  }
+
   const resolvedSearchParams = await searchParams;
   const q = resolvedSearchParams.q || "";
 
@@ -72,6 +126,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
                 <th className={styles.th}>Nhân viên</th>
                 <th className={styles.th}>Tên tài khoản</th>
                 <th className={styles.th}>Vai trò</th>
+                <th className={styles.th}>Chỉ tiêu tháng</th>
                 <th className={styles.th}>Ngày tạo</th>
                 <th className={styles.th}>Mã định danh</th>
                 <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
@@ -99,6 +154,13 @@ export default async function StaffPage({ searchParams }: PageProps) {
                       <span className={`${styles.badge} ${isAdmin ? styles.badgeVIPPlus : styles.badgeNormal}`}>
                         {isAdmin ? "Quản trị viên" : "Nhân viên"}
                       </span>
+                    </td>
+                    <td className={styles.td}>
+                      <EditStaffTargetButton
+                        staffId={staff.id}
+                        staffName={staff.fullName}
+                        initialTarget={staff.target ? Number(staff.target) : null}
+                      />
                     </td>
                     <td className={styles.td}>
                       {new Date(staff.createdAt).toLocaleDateString("vi-VN")}

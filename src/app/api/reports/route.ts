@@ -7,7 +7,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
     if (inv.staffId) {
       if (!saleDoanhSo[inv.staffId]) {
         const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
-        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+        const staffObj = allStaff.find((s) => s.id === inv.staffId);
+        const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target };
       }
       saleDoanhSo[inv.staffId].totalSales += amountPaid;
     }
@@ -26,7 +28,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
     if (inv.staffId) {
       if (!saleDoanhSo[inv.staffId]) {
         const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
-        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+        const staffObj = allStaff.find((s) => s.id === inv.staffId);
+        const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target };
       }
       saleDoanhSo[inv.staffId].totalSales += amountPaid;
     }
@@ -66,7 +70,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
 
           if (!saleDoanhSo[staffId]) {
             const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
-            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+            const staffObj = allStaff.find((s) => s.id === staffId);
+            const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target };
           }
           saleDoanhSo[staffId].totalSales += splitShare;
         });
@@ -75,7 +81,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
         selectedStaffIds.forEach((staffId) => {
           if (!saleDoanhSo[staffId]) {
             const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
-            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+            const staffObj = allStaff.find((s) => s.id === staffId);
+            const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target };
           }
           saleDoanhSo[staffId].totalSales += splitShare;
         });
@@ -270,12 +278,6 @@ export async function GET(request: Request) {
       customerDebts[customerId].debtAmount += amt;
     });
 
-    // Calculate service operating costs (30% of treatment usage value)
-    let totalServiceCost = 0;
-    usageLogs.forEach((log) => {
-      totalServiceCost += Number(log.service.price) * 0.3;
-    });
-
     const salesLeaderboard = Object.values(saleDoanhSo).sort((a, b) => b.totalSales - a.totalSales);
     const debtsList = Object.values(customerDebts).sort((a, b) => b.debtAmount - a.debtAmount);
 
@@ -283,8 +285,6 @@ export async function GET(request: Request) {
       revenueSummary: {
         totalRevenue,
         totalBankFee,
-        totalServiceCost,
-        netProfit: Math.max(0, totalRevenue - totalBankFee - totalServiceCost),
       },
       salesLeaderboard,
       debts: {

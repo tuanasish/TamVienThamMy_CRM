@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getMaintenanceStatus, setMaintenanceStatus } from "@/lib/systemConfig";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function GET() {
   }
 }
 
-// POST to update the maintenance status (Staff only)
+// POST to update the maintenance status (Admin only)
 export async function POST(request: Request) {
   try {
     // Verify staff session
@@ -32,7 +33,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phiên làm việc không hợp lệ" }, { status: 400 });
     }
 
-    if (session.role !== "staff") {
+    // Fetch live role from DB to verify admin permissions
+    const dbStaff = await db.staff.findUnique({
+      where: { id: session.id },
+      select: { role: true }
+    });
+
+    if (dbStaff?.role !== "admin") {
       return NextResponse.json({ error: "Bạn không có quyền thực hiện chức năng này" }, { status: 403 });
     }
 

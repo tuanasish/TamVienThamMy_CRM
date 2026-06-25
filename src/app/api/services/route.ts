@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { verifyAdmin } from "@/lib/auth";
 
 // GET all services
 export async function GET() {
@@ -18,8 +19,11 @@ export async function GET() {
 // POST create service
 export async function POST(request: Request) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const body = await request.json();
-    const { name, price, type, notes } = body;
+    const { name, price, type, notes, tags } = body;
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: "Tên mặt hàng và giá là bắt buộc" }, { status: 400 });
@@ -38,6 +42,7 @@ export async function POST(request: Request) {
         price: priceNum,
         type: serviceType,
         notes: notes || "",
+        tags: tags || null,
       },
     });
 

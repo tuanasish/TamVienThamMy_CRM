@@ -26,6 +26,7 @@ interface ServiceProp {
   name: string;
   price: number;
   type: string;
+  sessions?: number;
 }
 
 interface CardTemplateProp {
@@ -291,7 +292,7 @@ export default function CreateInvoiceForm({
           itemType: "service",
           price: s.price,
           quantity: 1,
-          totalSessions: 1, // Default 1 session
+          totalSessions: s.sessions || 1,
           discount: "0",
           staffId: staffId || "",
           saleStaffIds: staffId ? [staffId] : [],
@@ -716,7 +717,7 @@ export default function CreateInvoiceForm({
                               itemType: "service",
                               price: item.price,
                               quantity: 1,
-                              totalSessions: 1,
+                              totalSessions: (item as any).sessions || 1,
                               discount: "0",
                               staffId: staffId || "",
                               saleStaffIds: staffId ? [staffId] : [],

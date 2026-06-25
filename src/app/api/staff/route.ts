@@ -32,6 +32,7 @@ export async function GET() {
         username: true,
         fullName: true,
         role: true,
+        target: true,
         createdAt: true,
       },
       orderBy: {
@@ -63,12 +64,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phiên làm việc không hợp lệ" }, { status: 400 });
     }
 
-    if (session.role !== "staff") {
+    // Fetch live role from DB to verify admin permissions
+    const dbStaff = await db.staff.findUnique({
+      where: { id: session.id },
+      select: { role: true }
+    });
+
+    if (dbStaff?.role !== "admin") {
       return NextResponse.json({ error: "Bạn không có quyền thực hiện chức năng này" }, { status: 403 });
     }
 
     const body = await request.json();
-    const { username, password, fullName, role = "staff" } = body;
+    const { username, password, fullName, role = "staff", target } = body;
 
     if (!username || !password || !fullName) {
       return NextResponse.json({ error: "Vui lòng nhập đầy đủ thông tin nhân viên" }, { status: 400 });
@@ -94,6 +101,8 @@ export async function POST(request: Request) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const targetNum = target !== undefined && target !== null && target !== "" ? Number(target) : null;
+
     // Create staff member
     const newStaff = await db.staff.create({
       data: {
@@ -101,12 +110,14 @@ export async function POST(request: Request) {
         passwordHash,
         fullName: fullName.trim(),
         role: role.trim(),
+        target: targetNum,
       },
       select: {
         id: true,
         username: true,
         fullName: true,
         role: true,
+        target: true,
         createdAt: true,
       },
     });
@@ -142,7 +153,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Phiên làm việc không hợp lệ" }, { status: 400 });
     }
 
-    if (session.role !== "staff") {
+    // Fetch live role from DB to verify admin permissions
+    const dbStaff = await db.staff.findUnique({
+      where: { id: session.id },
+      select: { role: true }
+    });
+
+    if (dbStaff?.role !== "admin") {
       return NextResponse.json({ error: "Bạn không có quyền thực hiện chức năng này" }, { status: 403 });
     }
 
@@ -178,6 +195,61 @@ export async function DELETE(request: Request) {
       }, { status: 400 });
     }
     return NextResponse.json({ error: "Không thể xóa nhân viên" }, { status: 500 });
+  }
+}
+
+// PUT update a staff account's target (only for logged-in staff)
+export async function PUT(request: Request) {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("spa_crm_session");
+
+    if (!sessionCookie) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+
+    let session;
+    try {
+      session = JSON.parse(sessionCookie.value);
+    } catch (e) {
+      return NextResponse.json({ error: "Phiên làm việc không hợp lệ" }, { status: 400 });
+    }
+
+    // Fetch live role from DB to verify admin permissions
+    const dbStaff = await db.staff.findUnique({
+      where: { id: session.id },
+      select: { role: true }
+    });
+
+    if (dbStaff?.role !== "admin") {
+      return NextResponse.json({ error: "Bạn không có quyền thực hiện chức năng này" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { id, target } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Thiếu ID nhân viên" }, { status: 400 });
+    }
+
+    const targetNum = target !== undefined && target !== null && target !== "" ? Number(target) : null;
+
+    const updated = await db.staff.update({
+      where: { id },
+      data: {
+        target: targetNum,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        target: true,
+      }
+    });
+
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error("PUT Staff Error:", error);
+    return NextResponse.json({ error: "Không thể cập nhật chỉ tiêu nhân viên" }, { status: 500 });
   }
 }
 

@@ -1,10 +1,30 @@
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
 import PromotionDashboard from "./PromotionDashboard";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function PromotionsPage() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("spa_crm_session");
+  if (!sessionCookie) redirect("/login?role=staff");
+
+  let parsed;
+  try {
+    parsed = JSON.parse(sessionCookie.value);
+  } catch (e) {
+    redirect("/login?role=staff");
+  }
+
+  const dbStaff = await db.staff.findUnique({
+    where: { id: parsed.id },
+    select: { role: true }
+  });
+
+  const userRole = dbStaff?.role || "staff";
+
   // Query all promotions from DB
   const promotions = await db.promotion.findMany({
     orderBy: { createdAt: "desc" },
@@ -53,6 +73,7 @@ export default async function PromotionsPage() {
       <PromotionDashboard
         initialPromotions={mappedPromotions}
         initialRegistrations={mappedRegistrations}
+        userRole={userRole}
       />
     </div>
   );

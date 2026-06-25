@@ -12,6 +12,7 @@ export default function AddStaffModal() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("staff");
+  const [target, setTarget] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +32,7 @@ export default function AddStaffModal() {
           username,
           password,
           role,
+          target: target ? Number(target.replace(/\./g, "")) : null,
         }),
       });
 
@@ -45,6 +47,7 @@ export default function AddStaffModal() {
       setUsername("");
       setPassword("");
       setRole("staff");
+      setTarget("");
       setIsOpen(false);
       
       // Refresh page data
@@ -114,7 +117,7 @@ export default function AddStaffModal() {
                   />
                 </div>
 
-                <div className={`${styles.formGroup} ${styles.formFull}`}>
+                <div className={styles.formGroup}>
                   <label className={styles.label}>Vai trò *</label>
                   <select
                     className={styles.searchInput}
@@ -126,6 +129,21 @@ export default function AddStaffModal() {
                     <option value="staff">Nhân viên (staff)</option>
                     <option value="admin">Quản trị viên (admin)</option>
                   </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Chỉ tiêu doanh số tháng (đ)</label>
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder="Ví dụ: 30.000.000"
+                    value={target}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "");
+                      setTarget(clean ? clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "");
+                    }}
+                    disabled={loading}
+                  />
                 </div>
               </div>
 

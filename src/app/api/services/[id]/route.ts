@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { verifyAdmin } from "@/lib/auth";
 
 // PUT edit service
 export async function PUT(
@@ -7,9 +8,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json();
-    const { name, price, type, notes } = body;
+    const { name, price, type, notes, tags } = body;
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: "Tên mặt hàng và giá là bắt buộc" }, { status: 400 });
@@ -29,6 +33,7 @@ export async function PUT(
         price: priceNum,
         type: serviceType,
         notes: notes || "",
+        tags: tags || null,
       },
     });
 
@@ -45,6 +50,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await verifyAdmin();
+    if (authError) return authError;
+
     const { id } = await params;
 
     // Check if service is linked to any active treatment package or usage log

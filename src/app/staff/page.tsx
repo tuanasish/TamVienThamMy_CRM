@@ -267,15 +267,16 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
   const debtsList = Object.values(customerDebts).sort((a, b) => b.amount - a.amount).slice(0, 5);
 
   // 3. Sales leaderboard with precise decimal percentages
-  const saleTarget = 30000000; // 30M default target
   const saleLeaderboard = allStaff.map((st) => {
     const totalSales = saleDoanhSo[st.id]?.totalSales || 0;
-    const progress = Number(((totalSales / saleTarget) * 100).toFixed(2));
+    const target = st.target ? Number(st.target) : 30000000;
+    const progress = Number(((totalSales / target) * 100).toFixed(2));
     return {
       id: st.id,
       name: st.fullName,
       username: st.username,
       totalSales,
+      target,
       progress,
     };
   }).sort((a, b) => b.totalSales - a.totalSales);
@@ -436,7 +437,7 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
       <div className={styles.contentGrid}>
         {/* Left Side: Sale Leaderboard */}
         <div className={styles.sectionCard}>
-          <h3 className={styles.sectionTitle}>Chỉ tiêu doanh số Sale (Target {formatVND(saleTarget)})</h3>
+          <h3 className={styles.sectionTitle}>Bảng xếp hạng KPI doanh số</h3>
           
           <div className={styles.saleList}>
             {saleLeaderboard.length === 0 ? (
@@ -447,7 +448,7 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
                   <div className={styles.saleHeader}>
                     <span>{sale.name} ({sale.username})</span>
                     <strong>
-                      {formatVND(sale.totalSales)} / {formatVND(saleTarget)} (
+                      {formatVND(sale.totalSales)} / {formatVND(sale.target)} (
                       <span style={{ color: "#28a745", fontWeight: "bold" }}>{sale.progress}%</span>)
                     </strong>
                   </div>

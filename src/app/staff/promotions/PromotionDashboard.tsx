@@ -28,11 +28,13 @@ interface Registration {
 interface PromotionDashboardProps {
   initialPromotions: Promotion[];
   initialRegistrations: Registration[];
+  userRole: string;
 }
 
 export default function PromotionDashboard({
   initialPromotions,
   initialRegistrations,
+  userRole,
 }: PromotionDashboardProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"promos" | "leads">("leads"); // Default to leads to see signups
@@ -228,7 +230,7 @@ export default function PromotionDashboard({
                     <th>Lời nhắn từ khách</th>
                     <th>Thời gian</th>
                     <th>Trạng thái xử lý</th>
-                    <th style={{ textAlign: "right" }}>Thao tác</th>
+                    {userRole === "admin" && <th style={{ textAlign: "right" }}>Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -272,15 +274,17 @@ export default function PromotionDashboard({
                           <option value="cancelled">🔴 Đã hủy bỏ</option>
                         </select>
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          onClick={() => handleDeleteRegistration(reg.id)}
-                          className={styles.deleteBtnSmall}
-                          title="Xóa hồ sơ này"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
+                      {userRole === "admin" && (
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            onClick={() => handleDeleteRegistration(reg.id)}
+                            className={styles.deleteBtnSmall}
+                            title="Xóa hồ sơ này"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -295,10 +299,12 @@ export default function PromotionDashboard({
         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Quản lý chương trình khuyến mãi</h3>
-            <button onClick={() => setShowAddModal(true)} className={styles.addBtn}>
-              <Plus size={16} style={{ marginRight: "0.25rem" }} />
-              Tạo ưu đãi mới
-            </button>
+            {userRole === "admin" && (
+              <button onClick={() => setShowAddModal(true)} className={styles.addBtn}>
+                <Plus size={16} style={{ marginRight: "0.25rem" }} />
+                Tạo ưu đãi mới
+              </button>
+            )}
           </div>
 
           {promotions.length === 0 ? (
@@ -324,20 +330,22 @@ export default function PromotionDashboard({
                       Link ảnh: {promo.image}
                     </div>
                   )}
-                  <div className={styles.promoCardActions}>
-                    <button
-                      onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
-                      className={`${styles.actionBtnSmall} ${promo.isActive ? styles.btnWarning : styles.btnSuccess}`}
-                    >
-                      {promo.isActive ? "Tạm tắt" : "Bật lại"}
-                    </button>
-                    <button
-                      onClick={() => handleDeletePromo(promo.id)}
-                      className={`${styles.actionBtnSmall} ${styles.btnDanger}`}
-                    >
-                      <Trash2 size={14} style={{ marginRight: "0.25rem" }} /> Xóa
-                    </button>
-                  </div>
+                  {userRole === "admin" && (
+                    <div className={styles.promoCardActions}>
+                      <button
+                        onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
+                        className={`${styles.actionBtnSmall} ${promo.isActive ? styles.btnWarning : styles.btnSuccess}`}
+                      >
+                        {promo.isActive ? "Tạm tắt" : "Bật lại"}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePromo(promo.id)}
+                        className={`${styles.actionBtnSmall} ${styles.btnDanger}`}
+                      >
+                        <Trash2 size={14} style={{ marginRight: "0.25rem" }} /> Xóa
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

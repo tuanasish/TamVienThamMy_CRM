@@ -24,6 +24,7 @@ import Logo from "@/components/Logo";
 interface StaffSidebarProps {
   user: {
     fullName: string;
+    dbRole?: string;
   };
 }
 
@@ -72,7 +73,7 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
     }
   };
 
-  const menuItems = [
+  const rawMenuItems = [
     { name: "Tổng quan", path: "/staff", icon: <LayoutDashboard size={20} /> },
     { name: "Khách hàng", path: "/staff/customers", icon: <Users size={20} /> },
     { name: "Lịch hẹn", path: "/staff/appointments", icon: <Calendar size={20} /> },
@@ -80,9 +81,11 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
     { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} /> },
     { name: "Quản lý công nợ", path: "/staff/debts", icon: <Wallet size={20} /> },
     { name: "Chương trình ưu đãi", path: "/staff/promotions", icon: <Tag size={20} /> },
-    { name: "Quản lý nhân viên", path: "/staff/users", icon: <UserCog size={20} /> },
-    { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} /> },
+    { name: "Quản lý nhân viên", path: "/staff/users", icon: <UserCog size={20} />, adminOnly: true },
+    { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} />, adminOnly: true },
   ];
+
+  const menuItems = rawMenuItems.filter((item) => !item.adminOnly || user.dbRole === "admin");
 
   const handleLogout = async () => {
     try {
@@ -134,69 +137,73 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
         </div>
 
         <div className={styles.footerSection}>
-          {/* Maintenance Toggle */}
-          <div style={{
-            background: "rgba(197, 160, 89, 0.05)",
-            border: "1px solid rgba(197, 160, 89, 0.15)",
-            borderRadius: "10px",
-            padding: "0.65rem 0.8rem",
-            marginBottom: "0.75rem",
-            fontSize: "0.82rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.4rem"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--text-secondary, #5a5a5a)", fontWeight: 600 }}>Cổng Khách hàng:</span>
-              <span style={{
-                color: maintenance ? "#d9383a" : "#228b22",
-                fontWeight: 800,
-                fontSize: "0.75rem",
-                textTransform: "uppercase"
-              }}>
-                {maintenance ? "Bảo trì" : "Mở cửa"}
-              </span>
+          {/* Maintenance Toggle (Admin Only) */}
+          {user.dbRole === "admin" && (
+            <div style={{
+              background: "rgba(197, 160, 89, 0.05)",
+              border: "1px solid rgba(197, 160, 89, 0.15)",
+              borderRadius: "10px",
+              padding: "0.65rem 0.8rem",
+              marginBottom: "0.75rem",
+              fontSize: "0.82rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.4rem"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: "var(--text-secondary, #5a5a5a)", fontWeight: 600 }}>Cổng Khách hàng:</span>
+                <span style={{
+                  color: maintenance ? "#d9383a" : "#228b22",
+                  fontWeight: 800,
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase"
+                }}>
+                  {maintenance ? "Bảo trì" : "Mở cửa"}
+                </span>
+              </div>
+              <button
+                onClick={handleToggleMaintenance}
+                disabled={updatingConfig}
+                style={{
+                  width: "100%",
+                  padding: "0.45rem",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: maintenance ? "rgba(34, 139, 34, 0.12)" : "rgba(217, 56, 58, 0.09)",
+                  color: maintenance ? "#1b6d1b" : "#b02a2b",
+                  fontWeight: 700,
+                  fontSize: "0.78rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.35rem"
+                }}
+              >
+                {updatingConfig ? (
+                  "Đang xử lý..."
+                ) : maintenance ? (
+                  <>
+                    <Unlock size={13} />
+                    <span>Mở hệ thống</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock size={13} />
+                    <span>Đóng hệ thống (Bảo trì)</span>
+                  </>
+                )}
+              </button>
             </div>
-            <button
-              onClick={handleToggleMaintenance}
-              disabled={updatingConfig}
-              style={{
-                width: "100%",
-                padding: "0.45rem",
-                borderRadius: "6px",
-                border: "none",
-                background: maintenance ? "rgba(34, 139, 34, 0.12)" : "rgba(217, 56, 58, 0.09)",
-                color: maintenance ? "#1b6d1b" : "#b02a2b",
-                fontWeight: 700,
-                fontSize: "0.78rem",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.35rem"
-              }}
-            >
-              {updatingConfig ? (
-                "Đang xử lý..."
-              ) : maintenance ? (
-                <>
-                  <Unlock size={13} />
-                  <span>Mở hệ thống</span>
-                </>
-              ) : (
-                <>
-                  <Lock size={13} />
-                  <span>Đóng hệ thống (Bảo trì)</span>
-                </>
-              )}
-            </button>
-          </div>
+          )}
 
           <div className={styles.userSection}>
             <div className={styles.userInfo}>
               <div className={styles.userLabel}>{user.fullName}</div>
-              <div className={styles.userRole}>Nhân viên Lễ tân</div>
+              <div className={styles.userRole}>
+                {user.dbRole === "admin" ? "Quản trị viên" : "Nhân viên"}
+              </div>
             </div>
           </div>
           <button onClick={handleLogout} className={styles.logoutBtn}>

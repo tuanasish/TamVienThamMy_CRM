@@ -21,6 +21,7 @@ interface ServiceProp {
   price: number;
   type: string; // 'service' or 'product'
   notes: string;
+  sessions?: number;
 }
 
 interface CardTemplateProp {
@@ -34,11 +35,13 @@ interface CardTemplateProp {
 interface SpaConfigTabsProps {
   initialServices: ServiceProp[];
   initialTemplates: CardTemplateProp[];
+  userRole: string;
 }
 
 export default function SpaConfigTabs({
   initialServices,
   initialTemplates,
+  userRole,
 }: SpaConfigTabsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"services" | "cards">("services");
@@ -48,6 +51,7 @@ export default function SpaConfigTabs({
   const [servicePrice, setServicePrice] = useState("");
   const [serviceType, setServiceType] = useState("service"); // 'service' or 'product'
   const [serviceNotes, setServiceNotes] = useState("");
+  const [serviceSessions, setServiceSessions] = useState("1");
   
   // Card form states
   const [cardName, setCardName] = useState("");
@@ -61,6 +65,7 @@ export default function SpaConfigTabs({
   const [editServicePrice, setEditServicePrice] = useState("");
   const [editServiceType, setEditServiceType] = useState("service");
   const [editServiceNotes, setEditServiceNotes] = useState("");
+  const [editServiceSessions, setEditServiceSessions] = useState("1");
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editCardName, setEditCardName] = useState("");
@@ -85,6 +90,7 @@ export default function SpaConfigTabs({
           price: Number(parseMoneyInput(servicePrice)),
           type: serviceType,
           notes: serviceNotes,
+          tags: serviceType === "service" ? { sessions: Number(serviceSessions) } : null,
         }),
       });
 
@@ -95,6 +101,7 @@ export default function SpaConfigTabs({
       setServicePrice("");
       setServiceType("service");
       setServiceNotes("");
+      setServiceSessions("1");
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -142,6 +149,7 @@ export default function SpaConfigTabs({
     setEditServicePrice(formatMoneyInput(sv.price.toString()));
     setEditServiceType(sv.type || "service");
     setEditServiceNotes(sv.notes || "");
+    setEditServiceSessions(sv.sessions ? sv.sessions.toString() : "1");
   };
 
   const saveEditService = async (id: string) => {
@@ -156,6 +164,7 @@ export default function SpaConfigTabs({
           price: Number(parseMoneyInput(editServicePrice)),
           type: editServiceType,
           notes: editServiceNotes,
+          tags: editServiceType === "service" ? { sessions: Number(editServiceSessions) } : null,
         }),
       });
 
@@ -275,9 +284,10 @@ export default function SpaConfigTabs({
         )}
 
         {activeTab === "services" ? (
-          <div className={styles.splitGrid}>
+          <div className={styles.splitGrid} style={userRole !== "admin" ? { gridTemplateColumns: "1fr" } : undefined}>
             {/* Form Column */}
-            <form onSubmit={handleCreateService} className={styles.formBox}>
+            {userRole === "admin" && (
+              <form onSubmit={handleCreateService} className={styles.formBox}>
               <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm mặt hàng mới</h3>
               
               <div className={styles.formGroup}>
@@ -321,6 +331,22 @@ export default function SpaConfigTabs({
                 />
               </div>
 
+              {serviceType === "service" && (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Số buổi của liệu trình/combo *</label>
+                  <input
+                    type="number"
+                    className={styles.input}
+                    placeholder="Ví dụ: 10 (mặc định = 1)"
+                    value={serviceSessions}
+                    onChange={(e) => setServiceSessions(e.target.value)}
+                    min="1"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
               <div className={styles.formGroup}>
                 <label className={styles.label}>Ghi chú / Ưu đãi</label>
                 <input
@@ -337,6 +363,7 @@ export default function SpaConfigTabs({
                 <Plus size={16} /> Lưu mặt hàng
               </button>
             </form>
+            )}
 
             {/* List Column */}
             <div className={styles.listColumn}>
@@ -377,6 +404,20 @@ export default function SpaConfigTabs({
                           placeholder="Giá bán lẻ (đ)"
                           required
                         />
+                        {editServiceType === "service" && (
+                          <div className={styles.formGroup} style={{ gap: "0.2rem" }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", margin: 0 }}>Số buổi *</label>
+                            <input
+                              type="number"
+                              className={styles.input}
+                              value={editServiceSessions}
+                              onChange={(e) => setEditServiceSessions(e.target.value)}
+                              placeholder="Số buổi liệu trình"
+                              min="1"
+                              required
+                            />
+                          </div>
+                        )}
                         <input
                           type="text"
                           className={styles.input}
@@ -421,7 +462,7 @@ export default function SpaConfigTabs({
                                 color: sv.type === "product" ? "#28a745" : "var(--accent-gold)"
                               }}
                             >
-                              {sv.type === "product" ? "Sản phẩm" : "Dịch vụ"}
+                              {sv.type === "product" ? "Sản phẩm" : `Dịch vụ (${sv.sessions || 1} buổi)`}
                             </span>
                           </div>
                           {sv.notes && (
@@ -434,22 +475,24 @@ export default function SpaConfigTabs({
                           <span className={styles.itemPrice} style={{ fontWeight: 700 }}>
                             {sv.price.toLocaleString("vi-VN")}đ
                           </span>
-                          <div style={{ display: "flex", gap: "0.35rem" }}>
-                            <button
-                              onClick={() => startEditService(sv)}
-                              style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Sửa mặt hàng"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteService(sv.id)}
-                              style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                              title="Xóa mặt hàng"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                          {userRole === "admin" && (
+                            <div style={{ display: "flex", gap: "0.35rem" }}>
+                              <button
+                                onClick={() => startEditService(sv)}
+                                style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                title="Sửa mặt hàng"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteService(sv.id)}
+                                style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                title="Xóa mặt hàng"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -459,9 +502,10 @@ export default function SpaConfigTabs({
             </div>
           </div>
         ) : (
-          <div className={styles.splitGrid}>
+          <div className={styles.splitGrid} style={userRole !== "admin" ? { gridTemplateColumns: "1fr" } : undefined}>
             {/* Form Column */}
-            <form onSubmit={handleCreateCard} className={styles.formBox}>
+            {userRole === "admin" && (
+              <form onSubmit={handleCreateCard} className={styles.formBox}>
               <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Thêm thẻ thành viên mới</h3>
 
               <div className={styles.formGroup}>
@@ -534,6 +578,7 @@ export default function SpaConfigTabs({
                 <Plus size={16} /> Lưu thẻ thành viên
               </button>
             </form>
+            )}
 
             {/* List Column */}
             <div className={styles.listColumn}>
@@ -632,22 +677,24 @@ export default function SpaConfigTabs({
                                 {t.value.toLocaleString("vi-VN")}đ
                               </strong>
                             </div>
-                            <div style={{ display: "flex", gap: "0.35rem" }}>
-                              <button
-                                onClick={() => startEditCard(t)}
-                                style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                                title="Sửa mẫu thẻ"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCard(t.id)}
-                                style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
-                                title="Xóa mẫu thẻ"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                            {userRole === "admin" && (
+                              <div style={{ display: "flex", gap: "0.35rem" }}>
+                                <button
+                                  onClick={() => startEditCard(t)}
+                                  style={{ background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                  title="Sửa mẫu thẻ"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCard(t.id)}
+                                  style={{ background: "transparent", color: "var(--accent-rose)", border: "none", cursor: "pointer", padding: "0.25rem" }}
+                                  title="Xóa mẫu thẻ"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
 

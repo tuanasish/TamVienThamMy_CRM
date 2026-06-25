@@ -72,6 +72,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     name: s.name,
     price: Number(s.price),
     type: s.type,
+    sessions: s.tags && typeof s.tags === "object" && s.tags !== null && "sessions" in s.tags ? Number((s.tags as any).sessions) : 1,
   }));
 
   // Fetch card templates

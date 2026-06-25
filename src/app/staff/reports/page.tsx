@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
-import { TrendingUp, Percent, DollarSign, Wallet, Users, BarChart3, Calendar } from "lucide-react";
+import { TrendingUp, Percent, DollarSign, Wallet, Users, BarChart3, Calendar, ShieldAlert } from "lucide-react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }>, allStaff: any[]) {
   const items = inv.items || [];
@@ -8,7 +10,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
     if (inv.staffId) {
       if (!saleDoanhSo[inv.staffId]) {
         const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
-        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+        const staffObj = allStaff.find((s) => s.id === inv.staffId);
+        const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target };
       }
       saleDoanhSo[inv.staffId].totalSales += amountPaid;
     }
@@ -27,7 +31,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
     if (inv.staffId) {
       if (!saleDoanhSo[inv.staffId]) {
         const staffName = inv.staff?.fullName || allStaff.find((s) => s.id === inv.staffId)?.fullName || "Nhân viên";
-        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target: 30000000 };
+        const staffObj = allStaff.find((s) => s.id === inv.staffId);
+        const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+        saleDoanhSo[inv.staffId] = { staffName, totalSales: 0, target };
       }
       saleDoanhSo[inv.staffId].totalSales += amountPaid;
     }
@@ -67,7 +73,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
 
           if (!saleDoanhSo[staffId]) {
             const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
-            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+            const staffObj = allStaff.find((s) => s.id === staffId);
+            const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target };
           }
           saleDoanhSo[staffId].totalSales += splitShare;
         });
@@ -76,7 +84,9 @@ function attributeInvoiceSales(inv: any, amountPaid: number, saleDoanhSo: Record
         selectedStaffIds.forEach((staffId) => {
           if (!saleDoanhSo[staffId]) {
             const staffName = allStaff.find((s) => s.id === staffId)?.fullName || "Nhân viên";
-            saleDoanhSo[staffId] = { staffName, totalSales: 0, target: 30000000 };
+            const staffObj = allStaff.find((s) => s.id === staffId);
+            const target = staffObj?.target ? Number(staffObj.target) : 30000000;
+            saleDoanhSo[staffId] = { staffName, totalSales: 0, target };
           }
           saleDoanhSo[staffId].totalSales += splitShare;
         });
@@ -100,6 +110,57 @@ interface PageProps {
 }
 
 export default async function ReportsPage({ searchParams }: PageProps) {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("spa_crm_session");
+  if (!sessionCookie) redirect("/login?role=staff");
+
+  let parsed;
+  try {
+    parsed = JSON.parse(sessionCookie.value);
+  } catch (e) {
+    redirect("/login?role=staff");
+  }
+
+  // Fetch live role from DB
+  const dbStaff = await db.staff.findUnique({
+    where: { id: parsed.id },
+    select: { role: true }
+  });
+
+  if (dbStaff?.role !== "admin") {
+    return (
+      <div style={{
+        padding: "5rem 2rem",
+        textAlign: "center",
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        boxShadow: "var(--shadow-sm)",
+        maxWidth: "600px",
+        margin: "4rem auto"
+      }}>
+        <ShieldAlert size={48} style={{ color: "var(--accent-rose)", marginBottom: "1.5rem" }} />
+        <h2 style={{ color: "var(--accent-rose)", fontWeight: 800, fontSize: "1.8rem", marginBottom: "1rem", marginTop: 0 }}>
+          Không có quyền truy cập
+        </h2>
+        <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", fontSize: "0.95rem" }}>
+          Khu vực này chứa thông tin bảo mật tài chính và chỉ dành riêng cho Quản trị viên (Admin).
+        </p>
+        <a href="/staff" style={{
+          padding: "0.6rem 1.5rem",
+          background: "var(--grad-premium)",
+          color: "white",
+          borderRadius: "var(--radius-sm)",
+          fontWeight: "700",
+          textDecoration: "none",
+          boxShadow: "0 2px 8px rgba(197,160,89,0.2)"
+        }}>
+          Quay lại Trang chủ
+        </a>
+      </div>
+    );
+  }
+
   const resolvedParams = await searchParams;
   const filter = resolvedParams.filter || "month";
   const startDateParam = resolvedParams.startDate;
@@ -249,14 +310,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     attributeInvoiceSales(sch.invoice, amt, saleDoanhSo, allStaff);
   });
 
-  // Service operational costs (30%)
-  let totalServiceCost = 0;
-  usageLogs.forEach((log) => {
-    totalServiceCost += Number(log.service.price) * 0.3;
-  });
-
-  const netProfit = Math.max(0, totalRevenue - totalBankFee - totalServiceCost);
-
   // Calculate current outstanding debt list
   let totalDebt = 0;
   const customerDebts: Record<string, { customerName: string; phone: string; debtAmount: number }> = {};
@@ -279,35 +332,20 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const debtsList = Object.values(customerDebts).sort((a, b) => b.debtAmount - a.debtAmount);
 
   // Sales Leaderboard with precise decimals and target target achievement
-  const saleTarget = 30000000;
   const salesLeaderboard = allStaff.map((st) => {
     const totalSales = saleDoanhSo[st.id]?.totalSales || 0;
+    const target = st.target ? Number(st.target) : 30000000;
     // Format progress as exact decimal percentage (e.g., 2.68% or 120.50%)
-    const progress = Number(((totalSales / saleTarget) * 100).toFixed(2));
+    const progress = Number(((totalSales / target) * 100).toFixed(2));
     return {
       id: st.id,
       name: st.fullName,
       username: st.username,
       totalSales,
+      target,
       progress,
     };
   }).sort((a, b) => b.totalSales - a.totalSales);
-
-  // Financial pie chart percentages
-  const totalFinancialSegments = totalRevenue || 1;
-  const profitPercentage = Math.round((netProfit / totalFinancialSegments) * 100);
-  const bankFeePercentage = Math.round((totalBankFee / totalFinancialSegments) * 100);
-  const costPercentage = Math.round((totalServiceCost / totalFinancialSegments) * 100);
-
-  const radius = 50;
-  const circumference = 2 * Math.PI * radius;
-  
-  const profitStroke = (profitPercentage / 100) * circumference;
-  const profitOffset = circumference;
-  const costStroke = (costPercentage / 100) * circumference;
-  const costOffset = circumference - profitStroke;
-  const feeStroke = (bankFeePercentage / 100) * circumference;
-  const feeOffset = circumference - profitStroke - costStroke;
 
   return (
     <div className={styles.container}>
@@ -360,18 +398,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         </div>
 
         <div className={styles.statCard}>
-          <div className={`${styles.iconWrapper} ${styles.iconWrapperProfit}`}>
-            <TrendingUp size={24} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statLabel}>Lợi nhuận ròng (Ước tính)</span>
-            <span className={styles.statValue} style={{ color: "#28a745" }}>
-              {formatVND(netProfit)}
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
           <div className={`${styles.iconWrapper} ${styles.iconWrapperLoss}`}>
             <Percent size={24} />
           </div>
@@ -399,92 +425,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         {/* Left column: Analytics and Sales */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           
-          {/* Revenue Allocation Chart */}
-          <div className={styles.sectionCard}>
-            <h3 className={styles.sectionTitle}>Cơ cấu sử dụng doanh thu</h3>
-            
-            <div className={styles.chartContainer}>
-              <svg width="220" height="220" viewBox="0 0 140 140" style={{ transform: "rotate(-90deg)" }}>
-                {/* Background Track */}
-                <circle
-                  cx="70"
-                  cy="70"
-                  r={radius}
-                  fill="transparent"
-                  stroke="var(--border-color)"
-                  strokeWidth="14"
-                />
-                
-                {/* Net Profit Segment */}
-                {profitPercentage > 0 && (
-                  <circle
-                    cx="70"
-                    cy="70"
-                    r={radius}
-                    fill="transparent"
-                    stroke="#28a745"
-                    strokeWidth="14"
-                    strokeDasharray={`${profitStroke} ${circumference}`}
-                    strokeDashoffset={profitOffset}
-                    strokeLinecap="round"
-                  />
-                )}
-
-                {/* Service Cost Segment */}
-                {costPercentage > 0 && (
-                  <circle
-                    cx="70"
-                    cy="70"
-                    r={radius}
-                    fill="transparent"
-                    stroke="var(--accent-gold)"
-                    strokeWidth="14"
-                    strokeDasharray={`${costStroke} ${circumference}`}
-                    strokeDashoffset={costOffset}
-                    strokeLinecap="round"
-                  />
-                )}
-
-                {/* Bank Fees Segment */}
-                {bankFeePercentage > 0 && (
-                  <circle
-                    cx="70"
-                    cy="70"
-                    r={radius}
-                    fill="transparent"
-                    stroke="var(--accent-rose)"
-                    strokeWidth="14"
-                    strokeDasharray={`${feeStroke} ${circumference}`}
-                    strokeDashoffset={feeOffset}
-                    strokeLinecap="round"
-                  />
-                )}
-              </svg>
-            </div>
-
-            <div className={styles.chartLabelGrid}>
-              <div className={styles.chartLabelItem}>
-                <div className={styles.colorIndicator} style={{ background: "#28a745" }} />
-                <span>Lợi nhuận ròng: <strong>{profitPercentage}%</strong></span>
-              </div>
-              <div className={styles.chartLabelItem}>
-                <div className={styles.colorIndicator} style={{ background: "var(--accent-gold)" }} />
-                <span>Chi phí liệu trình: <strong>{costPercentage}%</strong></span>
-              </div>
-              <div className={styles.chartLabelItem}>
-                <div className={styles.colorIndicator} style={{ background: "var(--accent-rose)" }} />
-                <span>Phí trả góp (NH): <strong>{bankFeePercentage}%</strong></span>
-              </div>
-              <div className={styles.chartLabelItem}>
-                <div className={styles.colorIndicator} style={{ background: "var(--text-secondary)" }} />
-                <span>Khác: <strong>{Math.max(0, 100 - profitPercentage - costPercentage - bankFeePercentage)}%</strong></span>
-              </div>
-            </div>
-          </div>
-
           {/* Sales Leaderboard with Milestone Green Progress Bars */}
           <div className={styles.sectionCard}>
-            <h3 className={styles.sectionTitle}>Bảng xếp hạng KPI Sales (Chỉ tiêu {formatVND(saleTarget)})</h3>
+            <h3 className={styles.sectionTitle}>Bảng xếp hạng KPI Sales</h3>
             
             <div className={styles.saleList}>
               {salesLeaderboard.length === 0 ? (
@@ -495,7 +438,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                     <div className={styles.kpiHeaderFlex}>
                       <span>{sale.name} ({sale.username})</span>
                       <strong>
-                        {formatVND(sale.totalSales)} / {formatVND(saleTarget)} (
+                        {formatVND(sale.totalSales)} / {formatVND(sale.target)} (
                         <span style={{ color: "#28a745", fontWeight: "bold" }}>{sale.progress}%</span>)
                       </strong>
                     </div>
