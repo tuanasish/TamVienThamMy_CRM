@@ -5,7 +5,7 @@ import styles from "./page.module.css";
 import BookingForm from "@/components/BookingForm";
 
 export const metadata = {
-  title: "Đặt lịch hẹn trực tuyến - L'Amour Spa",
+  title: "Đặt lịch hẹn trực tuyến - Thẩm Mỹ Viện Tấm",
 };
 
 export const dynamic = "force-dynamic";

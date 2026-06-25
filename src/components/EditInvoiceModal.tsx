@@ -394,8 +394,8 @@ export default function EditInvoiceModal({
       discount: "0",
       staffId: staffId || (staff[0]?.id || ""),
       saleStaffIds: staffId ? [staffId] : (staff[0]?.id ? [staff[0].id] : []),
-      useToday: false,
-      technicianId: "",
+      useToday: type === "service",
+      technicianId: type === "service" && staff[0]?.id ? staff[0].id : "",
     };
     setEditItems([...editItems, newItem]);
   };
@@ -612,7 +612,25 @@ export default function EditInvoiceModal({
                     padding: "0.4rem",
                     background: "var(--bg-secondary)"
                   }}>
-                    {filteredItems.length === 0 ? (
+                    {!itemSearch.trim() ? (
+                      <div style={{
+                        textAlign: "center",
+                        padding: "2.5rem 1.5rem",
+                        color: "var(--text-secondary)",
+                        fontSize: "0.82rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "0.6rem",
+                        userSelect: "none"
+                      }}>
+                        <Search size={22} style={{ color: "var(--accent-gold)", opacity: 0.7 }} />
+                        <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>Tìm kiếm mặt hàng cần thêm</div>
+                        <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                          Nhập từ khóa vào ô tìm kiếm ở trên để hiển thị danh sách {selectedItemType === "service" ? "dịch vụ" : selectedItemType === "product" ? "sản phẩm" : "mẫu thẻ nạp"}
+                        </div>
+                      </div>
+                    ) : filteredItems.length === 0 ? (
                       <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-secondary)", fontSize: "0.8rem" }}>
                         Không tìm thấy mặt hàng nào phù hợp
                       </div>
@@ -620,17 +638,41 @@ export default function EditInvoiceModal({
                       filteredItems.map((item) => {
                         const isAdded = editItems.some(itm => itm.itemId === item.id && itm.itemType === selectedItemType);
                         return (
-                          <div key={item.id} style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "0.45rem 0.6rem",
-                            background: "var(--bg-primary)",
-                            border: "1px solid var(--border-color)",
-                            borderRadius: "6px",
-                            fontSize: "0.82rem"
-                          }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem", flex: "1 1 auto", marginRight: "0.5rem" }}>
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              if (!isAdded && !loading) {
+                                handleAddItem(item, selectedItemType);
+                              }
+                            }}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "0.45rem 0.6rem",
+                              background: "var(--bg-primary)",
+                              border: "1px solid var(--border-color)",
+                              borderRadius: "6px",
+                              fontSize: "0.82rem",
+                              cursor: isAdded ? "default" : "pointer",
+                              opacity: isAdded ? 0.7 : 1,
+                              transition: "all 0.25s ease",
+                              userSelect: "none"
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isAdded) {
+                                e.currentTarget.style.borderColor = "var(--accent-gold)";
+                                e.currentTarget.style.background = "rgba(197, 160, 89, 0.04)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isAdded) {
+                                e.currentTarget.style.borderColor = "var(--border-color)";
+                                e.currentTarget.style.background = "var(--bg-primary)";
+                              }
+                            }}
+                          >
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", flex: "1 1 auto", marginRight: "0.5rem" }}>
                               <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.name}</span>
                               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                                 {selectedItemType === "card"
@@ -640,7 +682,12 @@ export default function EditInvoiceModal({
                             </div>
                             <button
                               type="button"
-                              onClick={() => handleAddItem(item, selectedItemType)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isAdded && !loading) {
+                                  handleAddItem(item, selectedItemType);
+                                }
+                              }}
                               disabled={loading || isAdded}
                               style={{
                                 flex: "0 0 auto",
@@ -753,64 +800,6 @@ export default function EditInvoiceModal({
                             </span>
                           </div>
 
-                          {/* Dùng luôn hôm nay (Chỉ áp dụng cho Dịch vụ) */}
-                          {item.itemType === "service" && (
-                            <div style={{
-                              marginTop: "0.5rem",
-                              padding: "0.5rem",
-                              background: "rgba(197, 160, 89, 0.05)",
-                              border: "1px solid rgba(197, 160, 89, 0.2)",
-                              borderRadius: "6px",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "0.35rem"
-                            }}>
-                              <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", cursor: "pointer" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={item.useToday || false}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setEditItems(editItems.map(itm => {
-                                      if (itm.id === item.id) {
-                                        return {
-                                          ...itm,
-                                          useToday: checked,
-                                          technicianId: checked ? (itm.technicianId || (staff[0]?.id || "")) : ""
-                                        };
-                                      }
-                                      return itm;
-                                    }));
-                                  }}
-                                  style={{ accentColor: "var(--accent-gold)", cursor: "pointer" }}
-                                />
-                                <span>Khách sử dụng dịch vụ luôn hôm nay?</span>
-                              </label>
-
-                              {item.useToday && (
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.15rem" }}>
-                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: 600 }}>KTV thực hiện:</span>
-                                  <select
-                                    className={styles.select}
-                                    style={{ height: "24px", fontSize: "0.72rem", padding: "2px 6px", width: "auto", minWidth: "120px" }}
-                                    value={item.technicianId || ""}
-                                    onChange={(e) => {
-                                      const techId = e.target.value;
-                                      setEditItems(editItems.map(itm => itm.id === item.id ? { ...itm, technicianId: techId } : itm));
-                                    }}
-                                    required={item.useToday}
-                                  >
-                                    <option value="">-- Chọn KTV --</option>
-                                    {staff.map((st) => (
-                                      <option key={st.id} value={st.id}>
-                                        {st.fullName}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              )}
-                            </div>
-                          )}
 
                           {/* Chọn nhân viên tư vấn */}
                           <div style={{ marginTop: "0.4rem", display: "flex", flexDirection: "column", gap: "0.15rem" }}>
@@ -903,6 +892,139 @@ export default function EditInvoiceModal({
                 </div>
 
               </div>
+
+              {/* Section: Ghi nhận sử dụng dịch vụ hôm nay (Dùng luôn) */}
+              {editItems.some(itm => itm.itemType === "service") && (
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>
+                    🎯 Ghi nhận sử dụng dịch vụ hôm nay
+                  </div>
+                  <div style={{
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    padding: "1rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                    width: "100%"
+                  }}>
+                    {/* Hàng chọn nhanh KTV cho tất cả */}
+                    {editItems.filter(itm => itm.itemType === "service").length > 1 && (
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "0.5rem 0.75rem",
+                        background: "rgba(197, 160, 89, 0.08)",
+                        border: "1px dashed var(--accent-gold)",
+                        borderRadius: "6px",
+                        marginBottom: "0.25rem",
+                        flexWrap: "wrap",
+                        gap: "0.5rem"
+                      }}>
+                        <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--accent-gold)" }}>
+                          ⚡ Gán nhanh 1 Kỹ thuật viên cho TẤT CẢ dịch vụ hôm nay:
+                        </span>
+                        <select
+                          className={styles.select}
+                          style={{ height: "28px", fontSize: "0.78rem", padding: "2px 6px", width: "auto", minWidth: "160px", fontWeight: "bold", borderColor: "var(--accent-gold)" }}
+                          value=""
+                          onChange={(e) => {
+                            const techId = e.target.value;
+                            if (!techId) return;
+                            setEditItems(editItems.map(itm => {
+                              if (itm.itemType === "service") {
+                                return {
+                                  ...itm,
+                                  useToday: true,
+                                  technicianId: techId
+                                };
+                              }
+                              return itm;
+                            }));
+                          }}
+                        >
+                          <option value="">-- Chọn nhanh KTV --</option>
+                          {staff.map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.fullName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {editItems.filter(itm => itm.itemType === "service").map((item) => (
+                      <div key={item.id} style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "1rem",
+                        padding: "0.65rem 0.85rem",
+                        background: "var(--bg-primary)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "6px"
+                      }}>
+                        {/* Tên dịch vụ */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>{item.name}</span>
+                          <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>Số lượng mua: {item.quantity}</span>
+                        </div>
+
+                        {/* Checkbox Dùng luôn hôm nay & Chọn KTV */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.78rem", fontWeight: 700, color: "var(--accent-gold)", cursor: "pointer", userSelect: "none" }}>
+                            <input
+                              type="checkbox"
+                              checked={item.useToday || false}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setEditItems(editItems.map(itm => {
+                                  if (itm.id === item.id) {
+                                    return {
+                                      ...itm,
+                                      useToday: checked,
+                                      technicianId: checked ? (itm.technicianId || (staff[0]?.id || "")) : ""
+                                    };
+                                  }
+                                  return itm;
+                                }));
+                              }}
+                              style={{ accentColor: "var(--accent-gold)", cursor: "pointer", width: "16px", height: "16px" }}
+                            />
+                            <span>Dùng luôn hôm nay?</span>
+                          </label>
+
+                          {item.useToday && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600 }}>KTV thực hiện:</span>
+                              <select
+                                className={styles.select}
+                                style={{ height: "28px", fontSize: "0.78rem", padding: "2px 6px", width: "auto", minWidth: "150px" }}
+                                value={item.technicianId || ""}
+                                onChange={(e) => {
+                                  const techId = e.target.value;
+                                  setEditItems(editItems.map(itm => itm.id === item.id ? { ...itm, technicianId: techId } : itm));
+                                }}
+                                required={item.useToday}
+                              >
+                                <option value="">-- Chọn KTV --</option>
+                                {staff.map((st) => (
+                                  <option key={st.id} value={st.id}>
+                                    {st.fullName}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Section 1: General */}
               <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-gold)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>

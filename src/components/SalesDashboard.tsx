@@ -409,7 +409,7 @@ export default function SalesDashboard({
                   <th style={{ width: "220px" }}>Khách hàng & Thời gian</th>
                   <th>Hóa đơn mua mới</th>
                   <th>Dịch vụ sử dụng</th>
-                  <th style={{ textAlign: "right", width: "160px" }}>Thao tác</th>
+                  <th style={{ width: "160px" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -521,9 +521,9 @@ export default function SalesDashboard({
                       </td>
 
                       {/* Actions */}
-                      <td style={{ textAlign: "right", verticalAlign: "top" }}>
+                      <td style={{ verticalAlign: "top" }}>
                         {act.invoices.length > 0 ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "flex-end" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "flex-start" }}>
                             {act.invoices.map((inv) => (
                               <div key={inv.id} style={{ display: "flex", gap: "0.35rem" }}>
                                 <EditInvoiceModal

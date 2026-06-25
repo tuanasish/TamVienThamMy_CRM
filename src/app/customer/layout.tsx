@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { getMaintenanceStatus } from "@/lib/systemConfig";
 import CustomerHeader from "@/components/CustomerHeader";
 import CustomerBottomNav from "@/components/CustomerBottomNav";
+import Footer from "@/components/Footer";
 import styles from "./layout.module.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Cổng tra cứu khách hàng - L'Amour Spa",
+  title: "Cổng tra cứu khách hàng - Thẩm Mỹ Viện Tấm",
 };
 
 export default async function CustomerLayout({
@@ -78,7 +79,7 @@ export default async function CustomerLayout({
             fontSize: "0.8rem",
             color: "#6e6e73"
           }}>
-            Hotline hỗ trợ khách hàng: <strong style={{ color: "#c5a059" }}>1800 6888</strong>
+            Hotline hỗ trợ khách hàng: <strong style={{ color: "#c5a059" }}>03955 11314</strong>
           </div>
         </div>
       </div>
@@ -121,6 +122,7 @@ export default async function CustomerLayout({
     <div className={styles.container}>
       <CustomerHeader user={userProp} />
       <main className={styles.mainContent}>{children}</main>
+      <Footer />
       <CustomerBottomNav />
     </div>
   );
