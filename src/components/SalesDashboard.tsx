@@ -943,7 +943,7 @@ export default function SalesDashboard({
       {/* DIALOG 2: CREATE INVOICE MODAL */}
       {showInvoiceModal && activeAppointment && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modalContent} style={{ maxWidth: "900px", padding: "1.5rem" }}>
+          <div className={styles.modalContent} style={{ maxWidth: "900px" }}>
             <div className={styles.modalHeader}>
               <h3 style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-primary)" }}>
                 Lập hóa đơn thanh toán cho: {activeAppointment.customer.fullName}
