@@ -299,12 +299,10 @@ export default function PromotionDashboard({
         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Quản lý chương trình khuyến mãi</h3>
-            {userRole === "admin" && (
-              <button onClick={() => setShowAddModal(true)} className={styles.addBtn}>
-                <Plus size={16} style={{ marginRight: "0.25rem" }} />
-                Tạo ưu đãi mới
-              </button>
-            )}
+            <button onClick={() => setShowAddModal(true)} className={styles.addBtn}>
+              <Plus size={16} style={{ marginRight: "0.25rem" }} />
+              Tạo ưu đãi mới
+            </button>
           </div>
 
           {promotions.length === 0 ? (
@@ -330,7 +328,6 @@ export default function PromotionDashboard({
                       Link ảnh: {promo.image}
                     </div>
                   )}
-                  {userRole === "admin" && (
                     <div className={styles.promoCardActions}>
                       <button
                         onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
@@ -345,7 +342,6 @@ export default function PromotionDashboard({
                         <Trash2 size={14} style={{ marginRight: "0.25rem" }} /> Xóa
                       </button>
                     </div>
-                  )}
                 </div>
               ))}
             </div>
