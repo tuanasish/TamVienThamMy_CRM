@@ -15,24 +15,80 @@ interface Promotion {
   isActive: boolean;
 }
 
-// BẢNG GIÁ DỊCH VỤ TRẺ HÓA DA (ĐỒNG BỘ THEO MÀU SẮC CHỦ ĐẠO CỦA TRANG WEB)
+// BỘ PHÂN TÍCH ĐỊNH DẠNG BẢNG GIÁ DỊCH VỤ TỪ NỘI DUNG MÔ TẢ (DYNAMIC PRICING PARSER)
+// Cho phép Admin tự nhập: "Tên dịch vụ: Giá" trên từng dòng trong phần mô tả ưu đãi để tạo bảng giá động
+interface PricingRow {
+  name: string;
+  price: string;
+  bg: string;
+}
+
+function parsePricingDescription(description: string): PricingRow[] | null {
+  if (!description) return null;
+  
+  // Tách các dòng và loại bỏ khoảng trắng dư thừa
+  const lines = description.split("\n").map(line => line.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+  
+  const rows: PricingRow[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Tìm dấu phân tách (hai chấm ":", gạch đứng "|", hoặc gạch ngang " - ")
+    let separatorIndex = line.indexOf(":");
+    if (separatorIndex === -1) {
+      separatorIndex = line.indexOf("|");
+    }
+    if (separatorIndex === -1) {
+      separatorIndex = line.indexOf(" - ");
+    }
+    
+    if (separatorIndex === -1) {
+      return null; // Nếu có bất kỳ dòng nào không đúng định dạng, hủy bỏ và không coi là bảng giá
+    }
+    
+    const name = line.substring(0, separatorIndex).trim();
+    // Bỏ qua ký tự phân tách để lấy giá trị số tiền phía sau
+    const offset = line.startsWith(" - ", separatorIndex) ? 3 : 1;
+    const price = line.substring(separatorIndex + offset).trim();
+    
+    if (!name || !price) {
+      return null; // Tên hoặc giá trống là sai định dạng
+    }
+    
+    rows.push({
+      name,
+      price,
+      bg: i % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
+    });
+  }
+  
+  return rows.length > 0 ? rows : null;
+}
+
+// BẢNG GIÁ DỊCH VỤ (HỖ TRỢ CẢ CHẾ ĐỘ MẶC ĐỊNH VÀ DỮ LIỆU ĐỘNG DO ADMIN NHẬP)
 interface PricingListProps {
+  title?: string;
+  rows?: PricingRow[];
   onRegisterClick: () => void;
 }
 
-function PricingListFallback({ onRegisterClick }: PricingListProps) {
-  const rows = [
+function PricingListFallback({ title = "Dịch vụ trẻ hóa da", rows, onRegisterClick }: PricingListProps) {
+  const defaultRows = [
     { name: "Meso không kim Infusion FreshTech", price: "1.000.000", bg: "var(--bg-primary)" },
     { name: "CSD Cấp Tốc LS 2025", price: "1.000.000", bg: "var(--bg-secondary)" },
     { name: "Dr.Young Skin Mặt", price: "8.000.000", bg: "var(--bg-primary)" },
     { name: "Dr.Young Neo Collagen Mặt", price: "14.000.000", bg: "var(--bg-secondary)" },
   ];
 
+  const activeRows = rows || defaultRows;
+
   return (
     <div className="pricing-card">
       {/* Header sử dụng dải màu gradient vàng gold của trang web */}
       <div className="pricing-header">
-        <span>Dịch vụ trẻ hóa da</span>
+        <span>{title}</span>
         <span>Giá (Vnđ)</span>
         
         {/* Đường răng cưa/sóng lượn màu nền trang để hòa hợp tuyệt đối trong cả Light/Dark Mode */}
@@ -53,13 +109,13 @@ function PricingListFallback({ onRegisterClick }: PricingListProps) {
 
       {/* Danh sách các dòng dịch vụ */}
       <div style={{ padding: "0.5rem 0" }}>
-        {rows.map((row, index) => (
+        {activeRows.map((row, index) => (
           <div 
             key={index} 
             className="pricing-row"
             style={{
               background: row.bg,
-              borderBottom: index === rows.length - 1 ? "none" : "1px solid var(--border-color)",
+              borderBottom: index === activeRows.length - 1 ? "none" : "1px solid var(--border-color)",
             }}
           >
             <span>{row.name}</span>
@@ -72,10 +128,10 @@ function PricingListFallback({ onRegisterClick }: PricingListProps) {
       <div className="pricing-footer">
         <button 
           onClick={onRegisterClick}
-          className="pricing-cta-btn"
+          className="pricing-cta-btn pulse-red-btn"
         >
           <LogIn size={16} />
-          Đăng Nhập Tra Cứu Liệu Trình
+          Đăng Nhập Ngay
         </button>
       </div>
     </div>
@@ -154,11 +210,28 @@ function LoginForm() {
     }
   };
 
+  // 1. Phân loại Feedback (Nhiều ảnh cách nhau bằng dấu phẩy)
   const feedbackPromo = promotions.find(
     (p) => p.image && p.image.includes(",")
   );
+
+  // 2. Tìm kiếm chương trình bảng giá dịch vụ động do Admin tự nhập
+  let dynamicPricingPromo: Promotion | undefined = undefined;
+  let dynamicPricingRows: PricingRow[] | null = null;
+
+  for (const p of promotions) {
+    if (p.id === feedbackPromo?.id) continue;
+    const parsed = parsePricingDescription(p.description);
+    if (parsed) {
+      dynamicPricingPromo = p;
+      dynamicPricingRows = parsed;
+      break;
+    }
+  }
+
+  // 3. Banner Ưu đãi (1 ảnh đơn lẻ, không phải feedback hay bảng giá động)
   const bannerPromo = promotions.find(
-    (p) => p.image && !p.image.includes(",") && p.id !== feedbackPromo?.id
+    (p) => p.image && !p.image.includes(",") && p.id !== feedbackPromo?.id && p.id !== dynamicPricingPromo?.id
   );
 
   const defaultFeedbackPromo = {
@@ -197,16 +270,26 @@ function LoginForm() {
           <Logo size="medium" />
           <button 
             onClick={() => setIsLoginModalOpen(true)}
-            className="header-login-btn"
+            className="header-login-btn pulse-red-btn"
           >
-            Tra Cứu Liệu Trình
+            Đăng Nhập Ngay
           </button>
         </header>
 
         {/* 2. KHUNG NỘI DUNG CUỘN CHÍNH */}
         <div className="landing-container">
           {/* PHẦN 1: CHƯƠNG TRÌNH ƯU ĐÃI (BẢNG GIÁ HOẶC BANNER) */}
-          {bannerPromo ? (
+          {dynamicPricingPromo && dynamicPricingRows ? (
+            // Nếu có bảng giá động được admin nhập trong database -> hiển thị bảng giá động đó
+            <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
+              <PricingListFallback 
+                title={dynamicPricingPromo.title}
+                rows={dynamicPricingRows}
+                onRegisterClick={() => setIsLoginModalOpen(true)} 
+              />
+            </section>
+          ) : bannerPromo ? (
+            // Nếu có banner ưu đãi bằng ảnh của nhân viên -> hiển thị banner ảnh
             <section className="custom-banner-section">
               <div style={{ textAlign: "center" }}>
                 <span className="banner-sub">Chương Trình Ưu Đãi Đặc Biệt</span>
@@ -232,6 +315,7 @@ function LoginForm() {
               </div>
             </section>
           ) : (
+            // Nếu không có cả 2 -> Hiển thị bảng giá mặc định
             <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
               <PricingListFallback onRegisterClick={() => setIsLoginModalOpen(true)} />
             </section>
@@ -391,6 +475,40 @@ function LoginForm() {
           @keyframes scaleIn {
             from { transform: scale(0.95); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
+          }
+          @keyframes pulse-red-anim {
+            0% {
+              transform: scale(1);
+              box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+            }
+            50% {
+              transform: scale(1.04);
+              box-shadow: 0 0 0 8px rgba(255, 59, 48, 0);
+            }
+            100% {
+              transform: scale(1);
+              box-shadow: 0 0 0 0 rgba(255, 59, 48, 0);
+            }
+          }
+
+          /* Pulse Red Button Styles */
+          .pulse-red-btn {
+            background: var(--bg-primary) !important;
+            color: #ff3b30 !important;
+            border: 2px solid #ff3b30 !important;
+            font-weight: 850 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            animation: pulse-red-anim 2s infinite ease-in-out !important;
+            box-shadow: 0 4px 15px rgba(255, 59, 48, 0.2) !important;
+            transition: all 0.2s ease !important;
+          }
+
+          .pulse-red-btn:hover {
+            background: #ff3b30 !important;
+            color: #ffffff !important;
+            box-shadow: 0 6px 20px rgba(255, 59, 48, 0.4) !important;
+            transform: scale(1.05) !important;
           }
 
           /* Sticky Header Styles */
