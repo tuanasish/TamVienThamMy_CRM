@@ -5,7 +5,7 @@ import styles from "./page.module.css";
 import BookingForm from "@/components/BookingForm";
 
 export const metadata = {
-  title: "Đặt lịch hẹn trực tuyến - Thẩm Mỹ Viện Tấm",
+  title: "Đặt lịch hẹn trực tuyến - Viện Thẩm Mỹ Tấm",
 };
 
 export const dynamic = "force-dynamic";

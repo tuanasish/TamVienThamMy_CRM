@@ -10,7 +10,7 @@ import styles from "./layout.module.css";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Cổng tra cứu khách hàng - Thẩm Mỹ Viện Tấm",
+  title: "Cổng tra cứu khách hàng - Viện Thẩm Mỹ Tấm",
 };
 
 export default async function CustomerLayout({

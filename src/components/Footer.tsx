@@ -44,7 +44,7 @@ export default function Footer() {
               lineHeight: "1.6",
               maxWidth: "320px",
             }}>
-              Thẩm Mỹ Viện Tấm. Nơi lưu giữ nét xuân, đồng hành cùng bạn trên hành trình chăm sóc và nâng niu vẻ đẹp tự nhiên một cách hoàn hảo nhất.
+              Viện Thẩm Mỹ Tấm. Nơi lưu giữ nét xuân, đồng hành cùng bạn trên hành trình chăm sóc và nâng niu vẻ đẹp tự nhiên một cách hoàn hảo nhất.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ export default function Footer() {
               </li>
               <li style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.9rem" }}>
                 <Clock size={16} style={{ color: "var(--accent-gold)", flexShrink: 0 }} />
-                <span style={{ color: "var(--text-secondary)" }}>09:00 - 20:00 (Tất cả các ngày trong tuần)</span>
+                <span style={{ color: "var(--text-secondary)" }}>8h30-20h (Tất cả các ngày trong tuần)</span>
               </li>
             </ul>
           </div>
@@ -204,7 +204,7 @@ export default function Footer() {
           color: "var(--text-secondary)",
         }}>
           <div>
-            © 2026 <strong>Thẩm Mỹ Viện Tấm</strong>. Bảo lưu mọi quyền.
+            © 2026 <strong>Viện Thẩm Mỹ Tấm</strong>. Bảo lưu mọi quyền.
           </div>
           <div style={{ display: "flex", gap: "1.5rem" }}>
             <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>

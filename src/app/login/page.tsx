@@ -163,7 +163,7 @@ function LoginForm() {
 
   const defaultFeedbackPromo = {
     title: "TẤM",
-    description: "Hơn 30 sao Việt, 400 doanh nhân và hàng chục nghìn khách hàng chia sẻ những hình ảnh, câu chuyện thực tế khi làm đẹp tại Thẩm Mỹ Viện Tấm",
+    description: "Hơn 30 sao Việt, 400 doanh nhân và hàng chục nghìn khách hàng chia sẻ những hình ảnh, câu chuyện thực tế khi làm đẹp tại Viện Thẩm Mỹ Tấm",
     image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?q=80&w=400, https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400, https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=400",
   };
 
@@ -332,8 +332,8 @@ function LoginForm() {
                 <Logo size="medium" />
               </div>
 
-              <h2 className={styles.roleTitle} style={{ marginTop: 0, fontSize: "1.25rem", color: "var(--accent-gold)", marginBottom: "0.5rem" }}>
-                Cổng Tra Cứu Khách Hàng
+              <h2 className={styles.roleTitle} style={{ marginTop: 0, fontSize: "1.15rem", color: "var(--accent-gold)", marginBottom: "0.5rem", lineHeight: "1.4" }}>
+                Hệ thống quản lý và chăm sóc khách hàng 24/7
               </h2>
               <p style={{
                 fontSize: "0.85rem",
@@ -342,7 +342,7 @@ function LoginForm() {
                 marginBottom: "2.5rem",
                 lineHeight: "1.5",
               }}>
-                Vui lòng nhập số điện thoại đã đăng ký tại Thẩm Mỹ Viện Tấm để tra cứu liệu trình, hóa đơn và đặt lịch hẹn trực tuyến.
+                Vui lòng nhập số điện thoại đã đăng ký tại Viện Thẩm Mỹ Tấm để tra cứu liệu trình, hóa đơn và đặt lịch hẹn trực tuyến.
               </p>
 
               <form className={styles.form} onSubmit={handleSubmit}>
@@ -367,7 +367,7 @@ function LoginForm() {
 
                 <button type="submit" className={styles.submitBtn} disabled={loading}>
                   <LogIn size={18} />
-                  {loading ? "Đang kiểm tra..." : "Tra Cứu Ngay"}
+                  {loading ? "Đang kiểm tra..." : "Đăng nhập ngay"}
                 </button>
               </form>
 
