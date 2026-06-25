@@ -47,6 +47,14 @@ export default function PromotionDashboard({
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
   const [isActive, setIsActive] = useState(true);
+
+  // Edit promotion form states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editImage, setEditImage] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +140,55 @@ export default function PromotionDashboard({
       router.refresh();
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleOpenEditModal = (promo: Promotion) => {
+    setEditingPromo(promo);
+    setEditTitle(promo.title);
+    setEditDescription(promo.description);
+    setEditImage(promo.image || "");
+    setEditIsActive(promo.isActive);
+    setShowEditModal(true);
+  };
+
+  const handleUpdatePromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPromo || !editTitle || !editDescription) {
+      setError("Vui lòng điền đầy đủ tiêu đề và mô tả");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(`/api/promotions/${editingPromo.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+          image: editImage || null,
+          isActive: editIsActive,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Không thể cập nhật ưu đãi");
+
+      setSuccess("Cập nhật chương trình ưu đãi thành công!");
+      setPromotions(promotions.map((p) => (p.id === editingPromo.id ? data : p)));
+      setShowEditModal(false);
+      setEditingPromo(null);
+      
+      router.refresh();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -330,6 +387,13 @@ export default function PromotionDashboard({
                   )}
                     <div className={styles.promoCardActions}>
                       <button
+                        onClick={() => handleOpenEditModal(promo)}
+                        className={styles.actionBtnSmall}
+                        style={{ backgroundColor: "var(--accent-gold)", color: "#ffffff", border: "none" }}
+                      >
+                        Sửa
+                      </button>
+                      <button
                         onClick={() => handleTogglePromoStatus(promo.id, promo.isActive)}
                         className={`${styles.actionBtnSmall} ${promo.isActive ? styles.btnWarning : styles.btnSuccess}`}
                       >
@@ -417,6 +481,80 @@ export default function PromotionDashboard({
                 </button>
                 <button type="submit" className={styles.submitBtn} disabled={loading}>
                   {loading ? "Đang xử lý..." : "Tạo ưu đãi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* EDIT PROMOTION MODAL */}
+      {showEditModal && editingPromo && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 style={{ fontWeight: 700, fontSize: "1.15rem", color: "var(--text-primary)" }}>Chỉnh sửa chương trình ưu đãi</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingPromo(null); }} className={styles.closeBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePromo} className={styles.form}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Tiêu đề khuyến mãi / Tên bảng giá *</label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="Ví dụ: Giảm 50% liệu trình trị mụn hoặc Dịch vụ nổi bật"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Nội dung mô tả / Cấu trúc bảng giá *</label>
+                <textarea
+                  className={styles.textarea}
+                  rows={6}
+                  placeholder="Ví dụ viết bảng giá:&#10;Meso không kim Infusion FreshTech: 1.000.000&#10;CSD Cấp Tốc LS 2025: 1.000.000"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Đường dẫn hình ảnh ưu đãi (Không bắt buộc)</label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="https://example.com/promo-image.jpg"
+                  value={editImage}
+                  onChange={(e) => setEditImage(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className={styles.formGroup} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  id="editIsActive"
+                  checked={editIsActive}
+                  onChange={(e) => setEditIsActive(e.target.checked)}
+                  disabled={loading}
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+                <label htmlFor="editIsActive" style={{ fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>Kích hoạt hiển thị cho Khách hàng</label>
+              </div>
+
+              <div className={styles.formActions}>
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingPromo(null); }} className={styles.cancelBtn} disabled={loading}>
+                  Hủy bỏ
+                </button>
+                <button type="submit" className={styles.submitBtn} disabled={loading}>
+                  {loading ? "Đang xử lý..." : "Lưu thay đổi"}
                 </button>
               </div>
             </form>

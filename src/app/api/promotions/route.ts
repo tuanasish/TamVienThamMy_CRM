@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyAdmin } from "@/lib/auth";
+import { verifyStaff } from "@/lib/auth";
 
 // GET all promotions
 export async function GET() {
@@ -18,7 +18,7 @@ export async function GET() {
 // POST create new promotion
 export async function POST(request: Request) {
   try {
-    const authError = await verifyAdmin();
+    const authError = await verifyStaff();
     if (authError) return authError;
 
     const body = await request.json();

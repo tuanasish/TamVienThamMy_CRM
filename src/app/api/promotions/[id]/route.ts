@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyAdmin } from "@/lib/auth";
+import { verifyStaff } from "@/lib/auth";
 
 // PUT update promotion
 export async function PUT(
@@ -8,7 +8,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = await verifyAdmin();
+    const authError = await verifyStaff();
     if (authError) return authError;
 
     const { id } = await params;
@@ -46,7 +46,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = await verifyAdmin();
+    const authError = await verifyStaff();
     if (authError) return authError;
 
     const { id } = await params;
