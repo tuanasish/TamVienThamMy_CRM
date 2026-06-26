@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import styles from "./page.module.css";
-import { Wallet, Sparkles, Activity, Tag, Home, Award, Gift, Calendar, Phone } from "lucide-react";
+import { Wallet, Sparkles, Activity, Home, Award, Gift, Calendar, Phone } from "lucide-react";
 import Link from "next/link";
 import CustomerPromotions from "@/components/CustomerPromotions";
 
@@ -87,10 +87,6 @@ export default async function CustomerDashboard() {
     return !isFeedback && !isPricing;
   });
 
-  // 3. Fetch Spa services for suggestions
-  const spaServices = await db.service.findMany({
-    orderBy: { name: "asc" },
-  });
 
   const welcomeName = customer.fullName;
   const currentTier = customer.tier;
@@ -118,17 +114,6 @@ export default async function CustomerDashboard() {
   const pointsNeeded = nextTargetPoints - points;
   const progressPercent = Math.min(Math.round((points / nextTargetPoints) * 100), 100);
 
-  // 6. Split services into purchased and suggestions (suggestions hide price)
-  const purchasedServiceIds = new Set(customer.treatments.map(t => t.serviceId));
-  
-  const suggestedServices = spaServices
-    .filter(s => s.type === "service" && !purchasedServiceIds.has(s.id))
-    .slice(0, 4) // Show top 4 suggestions
-    .map(s => ({
-      id: s.id,
-      name: s.name,
-      notes: s.notes || "",
-    }));
 
   return (
     <div className={styles.container}>
@@ -343,36 +328,6 @@ export default async function CustomerDashboard() {
 
       </div>
 
-      {/* FEATURED SERVICE SUGGESTIONS SECTION (Requirement 7) */}
-      <section className={styles.sectionCard}>
-        <h3 className={styles.sectionTitle}>
-          <Tag size={18} style={{ marginRight: "0.5rem", verticalAlign: "middle", color: "var(--accent-gold)" }} />
-          Dịch vụ mong muốn thực hiện (Gợi ý cho bạn)
-        </h3>
-
-        <div className={styles.servicesGrid}>
-          {suggestedServices.length === 0 ? (
-            <div className={styles.emptyText}>Spa hiện chưa cập nhật thêm các dịch vụ gợi ý mới.</div>
-          ) : (
-            suggestedServices.map((sv) => (
-              <div key={sv.id} className={styles.serviceCard}>
-                <div className={styles.serviceInfo}>
-                  <span className={styles.serviceName}>{sv.name}</span>
-                  {sv.notes && (
-                    <div className={styles.serviceNotes}>
-                      {sv.notes}
-                    </div>
-                  )}
-                </div>
-                {/* DO NOT DISPLAY PRICE AS REQUESTED */}
-                <Link href="/customer/booking" className={styles.serviceRegisterLink}>
-                  Đặt lịch tư vấn
-                </Link>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
     </div>
   );
 }

@@ -256,7 +256,7 @@ function LoginForm() {
       }}>
         {/* 1. THANH TIÊU ĐỀ THƯƠNG HIỆU (STICKY HEADER) */}
         <header className="brand-header">
-          <Logo size="large" />
+          <Logo size="medium" />
           <button 
             onClick={() => setIsLoginModalOpen(true)}
             className="header-login-btn pulse-red-btn"

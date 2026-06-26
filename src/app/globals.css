@@ -83,6 +83,11 @@
   --glow-color: rgba(223, 183, 108, 0.15);
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 140px;
+}
+
 /* Global Reset & Basic Styles */
 * {
   box-sizing: border-box;
