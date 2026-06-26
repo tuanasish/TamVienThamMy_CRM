@@ -336,21 +336,11 @@ function LoginForm() {
               {feedbackImageUrls.length > 0 && (
                 <div className="feedback-right-col">
                   <div className="feedback-image-grid">
-                    {feedbackImageUrls.slice(0, 3).map((url, index) => {
-                      const labels = ["TRƯỚC KHI LÀM", "SAU 1 BUỔI", "SAU LIỆU TRÌNH"];
-                      const badgeColor = index === 0 ? "var(--text-secondary)" : "var(--accent-gold)";
-                      return (
-                        <div key={index} className="feedback-image-card">
-                          <img src={url} alt={`Feedback ${index + 1}`} />
-                          <div 
-                            className="feedback-image-label" 
-                            style={{ background: badgeColor }}
-                          >
-                            {labels[index] || "KẾT QUẢ"}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {feedbackImageUrls.slice(0, 3).map((url, index) => (
+                      <div key={index} className="feedback-image-card">
+                        <img src={url} alt={`Feedback ${index + 1}`} />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
