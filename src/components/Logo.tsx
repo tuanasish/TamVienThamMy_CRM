@@ -10,8 +10,8 @@ export default function Logo({ size = "medium" }: LogoProps) {
   const isLarge = size === "large";
 
   // Aspect ratio is 4:3 (577 x 433)
-  const height = isSmall ? 42 : isLarge ? 135 : 90;
-  const width = isSmall ? 56 : isLarge ? 180 : 120;
+  const height = isSmall ? 66 : isLarge ? 135 : 90;
+  const width = isSmall ? 88 : isLarge ? 180 : 120;
 
   return (
     <div style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", userSelect: "none" }}>

@@ -36,7 +36,7 @@ export default function Footer() {
           {/* Cột 1: Thương hiệu */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
             <div>
-              <Logo size="medium" />
+              <Logo size="small" />
             </div>
             <p style={{
               fontSize: "0.9rem",

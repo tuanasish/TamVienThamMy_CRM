@@ -34,7 +34,7 @@ export default function CustomerHeader({ user }: CustomerHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.logo} style={{ display: "flex", alignItems: "center" }}>
-        <Logo size="medium" />
+        <Logo size="small" />
       </div>
 
       <div className={styles.navRight}>

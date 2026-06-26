@@ -74,7 +74,7 @@ interface PricingListProps {
   onRegisterClick: () => void;
 }
 
-function PricingListFallback({ title = "Dịch vụ trẻ hóa da", rows, onRegisterClick }: PricingListProps) {
+function PricingListFallback({ title = "Dịch Vụ Nổi Bật Được Khách Hàng Lựa Chọn Nhiều Nhất", rows, onRegisterClick }: PricingListProps) {
   const defaultRows = [
     { name: "Meso không kim Infusion FreshTech", price: "1.000.000", bg: "var(--bg-primary)" },
     { name: "CSD Cấp Tốc LS 2025", price: "1.000.000", bg: "var(--bg-secondary)" },
@@ -256,7 +256,7 @@ function LoginForm() {
       }}>
         {/* 1. THANH TIÊU ĐỀ THƯƠNG HIỆU (STICKY HEADER) */}
         <header className="brand-header">
-          <Logo size="medium" />
+          <Logo size="small" />
           <button 
             onClick={() => setIsLoginModalOpen(true)}
             className="header-login-btn pulse-red-btn"
@@ -267,42 +267,10 @@ function LoginForm() {
 
         {/* 2. KHUNG NỘI DUNG CUỘN CHÍNH */}
         <div className="landing-container">
-          {/* PHẦN 1: CHƯƠNG TRÌNH ƯU ĐÃI ĐANG CHẠY (BANNER CHIẾN DỊCH) */}
-          {bannerPromos.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-              {bannerPromos.map((banner) => (
-                <section key={banner.id} className="custom-banner-section">
-                  <div style={{ textAlign: "center" }}>
-                    <span className="banner-sub">Chương Trình Ưu Đãi Đang Chạy</span>
-                    <h3 className="banner-title">{banner.title}</h3>
-                    <p className="banner-desc">{banner.description}</p>
-                  </div>
-
-                  {banner.image && (
-                    <div className="banner-image-container">
-                      <img src={banner.image} alt={banner.title} />
-                    </div>
-                  )}
-                  
-                  {/* Nút mở popup đăng nhập khi hiển thị banner tùy chỉnh */}
-                  <div style={{ textAlign: "center", marginTop: "2rem" }}>
-                    <button 
-                      onClick={() => setIsLoginModalOpen(true)}
-                      className="banner-cta-btn pulse-red-btn"
-                    >
-                      <LogIn size={16} />
-                      Đăng Nhập Nhận Ưu Đãi
-                    </button>
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-
-          {/* PHẦN 2: BẢNG GIÁ DỊCH VỤ (Cấu hình giao diện trang chủ - CMS) */}
+          {/* PHẦN 1: BẢNG GIÁ DỊCH VỤ (Cấu hình giao diện trang chủ - CMS) */}
           <section style={{ textAlign: "center", animation: "fadeInUp 0.6s ease forwards" }}>
             <PricingListFallback 
-              title={dynamicPricingPromo?.title || "Dịch vụ nổi bật"}
+              title={dynamicPricingPromo?.title || "Dịch Vụ Nổi Bật Được Khách Hàng Lựa Chọn Nhiều Nhất"}
               rows={dynamicPricingRows || undefined}
               onRegisterClick={() => setIsLoginModalOpen(true)} 
             />
