@@ -123,17 +123,6 @@ function PricingListFallback({ title = "Dịch vụ trẻ hóa da", rows, onRegi
           </div>
         ))}
       </div>
-
-      {/* Nút bấm Kích Hoạt Tra Cứu dưới chân Bảng giá */}
-      <div className="pricing-footer">
-        <button 
-          onClick={onRegisterClick}
-          className="pricing-cta-btn pulse-red-btn"
-        >
-          <LogIn size={16} />
-          Đăng Nhập Ngay
-        </button>
-      </div>
     </div>
   );
 }
@@ -267,7 +256,7 @@ function LoginForm() {
       }}>
         {/* 1. THANH TIÊU ĐỀ THƯƠNG HIỆU (STICKY HEADER) */}
         <header className="brand-header">
-          <Logo size="medium" />
+          <Logo size="large" />
           <button 
             onClick={() => setIsLoginModalOpen(true)}
             className="header-login-btn pulse-red-btn"
@@ -346,10 +335,10 @@ function LoginForm() {
                   {/* Nút mở popup đăng nhập tra cứu nhanh */}
                   <button 
                     onClick={() => setIsLoginModalOpen(true)}
-                    className="feedback-cta-btn"
+                    className="feedback-cta-btn pulse-red-btn"
                   >
                     <LogIn size={13} />
-                    TRA CỨU LIỆU TRÌNH
+                    ĐĂNG NHẬP NGAY
                   </button>
 
                   {/* Hotline */}
