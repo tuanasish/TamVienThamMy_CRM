@@ -72,9 +72,10 @@ interface PricingListProps {
   title?: string;
   rows?: PricingRow[];
   onRegisterClick: () => void;
+  image?: string | null;
 }
 
-function PricingListFallback({ title = "Dịch Vụ Nổi Bật Được Khách Hàng Lựa Chọn Nhiều Nhất", rows, onRegisterClick }: PricingListProps) {
+function PricingListFallback({ title = "Dịch Vụ Nổi Bật Được Khách Hàng Lựa Chọn Nhiều Nhất", rows, onRegisterClick, image }: PricingListProps) {
   const defaultRows = [
     { name: "Meso không kim Infusion FreshTech", price: "1.000.000", bg: "var(--bg-primary)" },
     { name: "CSD Cấp Tốc LS 2025", price: "1.000.000", bg: "var(--bg-secondary)" },
@@ -106,6 +107,13 @@ function PricingListFallback({ title = "Dịch Vụ Nổi Bật Được Khách 
           </svg>
         </div>
       </div>
+
+      {/* Dàn ảnh banner của bảng giá nếu có */}
+      {image && (
+        <div style={{ width: "100%", height: "220px", overflow: "hidden", borderBottom: "1px solid var(--border-color)" }}>
+          <img src={image} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      )}
 
       {/* Danh sách các dòng dịch vụ */}
       <div style={{ padding: "0.5rem 0" }}>
@@ -273,6 +281,7 @@ function LoginForm() {
               title={dynamicPricingPromo?.title || "Dịch Vụ Nổi Bật Được Khách Hàng Lựa Chọn Nhiều Nhất"}
               rows={dynamicPricingRows || undefined}
               onRegisterClick={() => setIsLoginModalOpen(true)} 
+              image={dynamicPricingPromo?.image}
             />
           </section>
 

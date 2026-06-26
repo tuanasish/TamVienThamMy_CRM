@@ -109,6 +109,84 @@ export default function PromotionDashboard({
   const [editFeedbackImgProgress, setEditFeedbackImgProgress] = useState("");
   const [editFeedbackImgAfter, setEditFeedbackImgAfter] = useState("");
 
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  const renderImageInputWithUpload = (
+    label: string,
+    value: string,
+    onChangeText: (val: string) => void,
+    fieldKey: string,
+    placeholder: string = "Nhập link ảnh hoặc bấm tải lên..."
+  ) => {
+    const isUploading = uploadingField === fieldKey;
+    return (
+      <div className={styles.formGroup}>
+        <label className={styles.label}>{label}</label>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="text"
+            className={styles.input}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onChangeText(e.target.value)}
+            disabled={loading}
+            style={{ flex: 1 }}
+          />
+          <label 
+            className={styles.addBtn}
+            style={{ 
+              margin: 0, 
+              padding: "0.55rem 1rem", 
+              width: "auto", 
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "0.82rem",
+              fontWeight: "bold",
+              whiteSpace: "nowrap",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-sm)"
+            }}
+          >
+            {isUploading ? "Đang tải..." : "Tải ảnh lên"}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              disabled={loading || isUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploadingField(fieldKey);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  const res = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData,
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.url) {
+                    onChangeText(data.url);
+                  } else {
+                    alert(data.error || "Tải ảnh lên thất bại");
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert("Đã xảy ra lỗi khi tải ảnh");
+                } finally {
+                  setUploadingField(null);
+                }
+              }}
+            />
+          </label>
+        </div>
+      </div>
+    );
+  };
+
   // ==========================================
   // PHÂN TÁCH DỮ LIỆU ĐỂ HIỂN THỊ RIÊNG BIỆT TRÊN 2 TAB
   // ==========================================
@@ -150,7 +228,7 @@ export default function PromotionDashboard({
       setEditPricingRows(parsedPricing);
       
       setEditDescription("");
-      setEditImage("");
+      setEditImage(promo.image || "");
       setEditFeedbackImgBefore("");
       setEditFeedbackImgProgress("");
       setEditFeedbackImgAfter("");
@@ -250,7 +328,7 @@ export default function PromotionDashboard({
         return;
       }
       finalDescription = validRows.map(r => `${r.name.trim()}: ${r.price.trim()}`).join("\n");
-      finalImage = null;
+      finalImage = image || null;
     } else if (promoType === "feedback") {
       if (!description.trim()) {
         setError("Vui lòng nhập nội dung chia sẻ thực tế của khách hàng");
@@ -338,7 +416,7 @@ export default function PromotionDashboard({
         return;
       }
       finalDescription = validRows.map(r => `${r.name.trim()}: ${r.price.trim()}`).join("\n");
-      finalImage = null;
+      finalImage = editImage || null;
     } else if (editPromoType === "feedback") {
       if (!editDescription.trim()) {
         setError("Vui lòng nhập nội dung chia sẻ thực tế của khách hàng");
@@ -893,6 +971,15 @@ export default function PromotionDashboard({
                   >
                     + Thêm dòng dịch vụ
                   </button>
+
+                  <div style={{ marginTop: "1rem" }}>
+                    {renderImageInputWithUpload(
+                      "Đường dẫn hình ảnh bảng giá (Không bắt buộc)",
+                      image,
+                      setImage,
+                      "pricingImage"
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -912,17 +999,12 @@ export default function PromotionDashboard({
                     />
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Đường dẫn hình ảnh banner (Không bắt buộc)</label>
-                    <input
-                      type="text"
-                      className={styles.input}
-                      placeholder="https://example.com/promo-image.jpg"
-                      value={image}
-                      onChange={(e) => setImage(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
+                  {renderImageInputWithUpload(
+                    "Đường dẫn hình ảnh banner (Không bắt buộc)",
+                    image,
+                    setImage,
+                    "bannerImage"
+                  )}
                 </>
               )}
 
@@ -943,44 +1025,26 @@ export default function PromotionDashboard({
                   </div>
 
                   <div className={styles.formGroup} style={{ border: "1px dashed rgba(223,183,108,0.2)", borderRadius: "12px", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem", background: "rgba(0,0,0,0.05)" }}>
-                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-gold)" }}>Bộ 3 hình ảnh so sánh kết quả (Nhập URL ảnh):</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-gold)" }}>Bộ 3 hình ảnh so sánh kết quả (Nhập URL hoặc Tải lên):</div>
                     
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh trước khi làm (Ảnh 1) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="Ví dụ: https://images.unsplash.com/photo-..."
-                        value={feedbackImgBefore}
-                        onChange={(e) => setFeedbackImgBefore(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh sau 1 buổi (Ảnh 2) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="Ví dụ: https://images.unsplash.com/photo-..."
-                        value={feedbackImgProgress}
-                        onChange={(e) => setFeedbackImgProgress(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh sau liệu trình (Ảnh 3) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="Ví dụ: https://images.unsplash.com/photo-..."
-                        value={feedbackImgAfter}
-                        onChange={(e) => setFeedbackImgAfter(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+                    {renderImageInputWithUpload(
+                      "Ảnh trước khi làm (Ảnh 1) *",
+                      feedbackImgBefore,
+                      setFeedbackImgBefore,
+                      "feedbackBefore"
+                    )}
+                    {renderImageInputWithUpload(
+                      "Ảnh sau 1 buổi (Ảnh 2) *",
+                      feedbackImgProgress,
+                      setFeedbackImgProgress,
+                      "feedbackProgress"
+                    )}
+                    {renderImageInputWithUpload(
+                      "Ảnh sau liệu trình (Ảnh 3) *",
+                      feedbackImgAfter,
+                      setFeedbackImgAfter,
+                      "feedbackAfter"
+                    )}
                   </div>
                 </>
               )}
@@ -1116,6 +1180,15 @@ export default function PromotionDashboard({
                   >
                     + Thêm dòng dịch vụ
                   </button>
+
+                  <div style={{ marginTop: "1rem" }}>
+                    {renderImageInputWithUpload(
+                      "Đường dẫn hình ảnh bảng giá (Không bắt buộc)",
+                      editImage,
+                      setEditImage,
+                      "editPricingImage"
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1135,17 +1208,12 @@ export default function PromotionDashboard({
                     />
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Đường dẫn hình ảnh banner (Không bắt buộc)</label>
-                    <input
-                      type="text"
-                      className={styles.input}
-                      placeholder="https://example.com/promo-image.jpg"
-                      value={editImage}
-                      onChange={(e) => setEditImage(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
+                  {renderImageInputWithUpload(
+                    "Đường dẫn hình ảnh banner (Không bắt buộc)",
+                    editImage,
+                    setEditImage,
+                    "editBannerImage"
+                  )}
                 </>
               )}
 
@@ -1166,44 +1234,26 @@ export default function PromotionDashboard({
                   </div>
 
                   <div className={styles.formGroup} style={{ border: "1px dashed rgba(223,183,108,0.2)", borderRadius: "12px", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem", background: "rgba(0,0,0,0.05)" }}>
-                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-gold)" }}>Bộ 3 hình ảnh so sánh kết quả (Nhập URL ảnh):</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent-gold)" }}>Bộ 3 hình ảnh so sánh kết quả (Nhập URL hoặc Tải lên):</div>
                     
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh trước khi làm (Ảnh 1) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="https://images.unsplash.com/photo-..."
-                        value={editFeedbackImgBefore}
-                        onChange={(e) => setEditFeedbackImgBefore(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh sau 1 buổi (Ảnh 2) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="https://images.unsplash.com/photo-..."
-                        value={editFeedbackImgProgress}
-                        onChange={(e) => setEditFeedbackImgProgress(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} style={{ fontSize: "0.75rem" }}>Ảnh sau liệu trình (Ảnh 3) *</label>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="https://images.unsplash.com/photo-..."
-                        value={editFeedbackImgAfter}
-                        onChange={(e) => setEditFeedbackImgAfter(e.target.value)}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+                    {renderImageInputWithUpload(
+                      "Ảnh trước khi làm (Ảnh 1) *",
+                      editFeedbackImgBefore,
+                      setEditFeedbackImgBefore,
+                      "editFeedbackBefore"
+                    )}
+                    {renderImageInputWithUpload(
+                      "Ảnh sau 1 buổi (Ảnh 2) *",
+                      editFeedbackImgProgress,
+                      setEditFeedbackImgProgress,
+                      "editFeedbackProgress"
+                    )}
+                    {renderImageInputWithUpload(
+                      "Ảnh sau liệu trình (Ảnh 3) *",
+                      editFeedbackImgAfter,
+                      setEditFeedbackImgAfter,
+                      "editFeedbackAfter"
+                    )}
                   </div>
                 </>
               )}
