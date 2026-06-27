@@ -9,9 +9,25 @@ const globalForPrisma = globalThis as unknown as {
 const createPrismaClient = () => {
   const connectionString = process.env.DATABASE_URL;
   
+  let dbConfig: any = {};
+  if (connectionString) {
+    try {
+      const parsedUrl = new URL(connectionString);
+      dbConfig = {
+        user: decodeURIComponent(parsedUrl.username),
+        password: decodeURIComponent(parsedUrl.password),
+        host: parsedUrl.hostname,
+        port: parsedUrl.port ? Number(parsedUrl.port) : 5432,
+        database: parsedUrl.pathname.substring(1),
+      };
+    } catch (e) {
+      dbConfig = { connectionString };
+    }
+  }
+
   // Initialize the PostgreSQL connection pool with optimized settings
   const pool = new Pool({ 
-    connectionString: connectionString || undefined,
+    ...dbConfig,
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
     max: 10,               // Maximum connections in pool
     idleTimeoutMillis: 30000,  // Close idle connections after 30s
