@@ -141,8 +141,20 @@ export async function GET(request: Request) {
       endDate.setHours(23, 59, 59, 999);
     }
 
+    const monthlyStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1, 0, 0, 0, 0);
+    const monthlyEndDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    const isMonthRange = startDate.getTime() === monthlyStartDate.getTime() && endDate.getTime() === monthlyEndDate.getTime();
+
     // Run queries in parallel
-    const [invoices, unpaidSchedules, paidSchedules, usageLogs, allStaff] = await Promise.all([
+    const [
+      invoices,
+      unpaidSchedules,
+      paidSchedules,
+      usageLogs,
+      allStaff,
+      monthlyInvoices,
+      monthlyPaidSchedules,
+    ] = await Promise.all([
       // 1. Invoices in date range
       db.invoice.findMany({
         where: {
@@ -220,13 +232,57 @@ export async function GET(request: Request) {
 
       // 5. Staff list
       db.staff.findMany(),
+
+      // 6. Monthly Invoices for KPI leaderboard
+      isMonthRange
+        ? Promise.resolve([])
+        : db.invoice.findMany({
+            where: {
+              createdAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+            },
+            select: {
+              paymentType: true,
+              installmentType: true,
+              finalAmount: true,
+              bankFee: true,
+              paidAmountOffset: true,
+              staffId: true,
+              staff: { select: { fullName: true } },
+              schedules: {
+                select: {
+                  amount: true,
+                },
+              },
+              items: true,
+            },
+          }),
+
+      // 7. Monthly Paid installments for KPI leaderboard
+      isMonthRange
+        ? Promise.resolve([])
+        : db.installmentSchedule.findMany({
+            where: {
+              status: "paid",
+              paidAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+            },
+            select: {
+              amount: true,
+              invoice: {
+                select: {
+                  staffId: true,
+                  staff: { select: { fullName: true } },
+                  items: true,
+                },
+              },
+            },
+          }),
     ]);
 
     let totalRevenue = 0;
     let totalBankFee = 0;
     const saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }> = {};
 
-    // Calculate revenue from core invoices
+    // Calculate revenue from core invoices in this period
     invoices.forEach((inv) => {
       const finalAmt = Number(inv.finalAmount);
       const fee = Number(inv.bankFee);
@@ -247,15 +303,38 @@ export async function GET(request: Request) {
       }
 
       totalRevenue += invRevenue;
-
-      attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
     });
 
     // Add revenue from paid installments in this period
     paidSchedules.forEach((sch) => {
       const amt = Number(sch.amount);
       totalRevenue += amt;
+    });
 
+    // Determine which target datasets to use for monthly leaderboard calculation
+    const targetInvoices = isMonthRange ? invoices : monthlyInvoices;
+    const targetPaidSchedules = isMonthRange ? paidSchedules : monthlyPaidSchedules;
+
+    // Process monthly invoices and paid schedules for staff target/sales leaderboard
+    targetInvoices.forEach((inv) => {
+      const finalAmt = Number(inv.finalAmount);
+      const offset = Number(inv.paidAmountOffset || 0);
+      let invRevenue = 0;
+      if (inv.paymentType === "installment") {
+        if (inv.installmentType === "counter") {
+          const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+          invRevenue = Math.max(0, finalAmt - totalDebt - offset);
+        } else {
+          invRevenue = Math.max(0, finalAmt - offset);
+        }
+      } else {
+        invRevenue = Math.max(0, finalAmt - offset);
+      }
+      attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
+    });
+
+    targetPaidSchedules.forEach((sch) => {
+      const amt = Number(sch.amount);
       attributeInvoiceSales(sch.invoice, amt, saleDoanhSo, allStaff);
     });
 

@@ -146,6 +146,11 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
     endDate.setHours(23, 59, 59, 999);
   }
 
+  // Calculate monthly range relative to the selected filter's startDate
+  const monthlyStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1, 0, 0, 0, 0);
+  const monthlyEndDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const isMonthRange = startDate.getTime() === monthlyStartDate.getTime() && endDate.getTime() === monthlyEndDate.getTime();
+
   // 2. Run ALL queries in parallel
   const [
     customerCount,
@@ -153,6 +158,9 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
     paidSchedules,
     unpaidSchedules,
     allStaff,
+    monthlyInvoices,
+    monthlyPaidSchedulesWithStaff,
+    filterPaidSchedulesWithStaff,
   ] = await Promise.all([
     // Customer count
     db.customer.count(),
@@ -198,10 +206,58 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
 
     // Staff list
     db.staff.findMany(),
+
+    // Monthly Invoices
+    isMonthRange
+      ? Promise.resolve([])
+      : db.invoice.findMany({
+          where: {
+            createdAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+          },
+          include: {
+            schedules: {
+              select: { amount: true },
+            },
+            items: true,
+          },
+        }),
+
+    // Monthly Paid installments
+    isMonthRange
+      ? Promise.resolve([])
+      : db.installmentSchedule.findMany({
+          where: {
+            status: "paid",
+            paidAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+          },
+          include: {
+            invoice: {
+              include: {
+                items: true,
+              },
+            },
+          },
+        }),
+
+    // Paid installments with invoice cashier details for attribution (only if month range matches filter)
+    isMonthRange
+      ? db.installmentSchedule.findMany({
+          where: {
+            status: "paid",
+            paidAt: { gte: startDate, lte: endDate },
+          },
+          include: {
+            invoice: {
+              include: {
+                items: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   let todayRevenue = 0;
-  const saleDoanhSo: Record<string, { staffName: string; totalSales: number }> = {};
 
   // Calculate revenue from invoices in this period
   invoices.forEach((inv) => {
@@ -218,8 +274,6 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
       invRevenue = finalAmt;
     }
     todayRevenue += invRevenue;
-
-    attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
   });
 
   // Add revenue from paid installments in this period
@@ -228,22 +282,30 @@ export default async function StaffDashboard({ searchParams }: PageProps) {
     todayRevenue += amt;
   });
 
-  // Re-fetch paid schedules with invoice cashier details to attribute sales properly
-  const paidSchedulesWithStaff = await db.installmentSchedule.findMany({
-    where: {
-      status: "paid",
-      paidAt: { gte: startDate, lte: endDate },
-    },
-    include: {
-      invoice: {
-        include: {
-          items: true,
-        },
-      },
-    },
+  // Determine which target datasets to use for monthly leaderboard calculation
+  const targetInvoices = isMonthRange ? invoices : monthlyInvoices;
+  const targetPaidSchedules = isMonthRange ? filterPaidSchedulesWithStaff : monthlyPaidSchedulesWithStaff;
+
+  const saleDoanhSo: Record<string, { staffName: string; totalSales: number }> = {};
+
+  targetInvoices.forEach((inv) => {
+    const finalAmt = Number(inv.finalAmount);
+    let invRevenue = 0;
+    if (inv.paymentType === "installment") {
+      if (inv.installmentType === "counter") {
+        const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+        invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+      } else {
+        invRevenue = finalAmt;
+      }
+    } else {
+      invRevenue = finalAmt;
+    }
+
+    attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
   });
 
-  paidSchedulesWithStaff.forEach((sch) => {
+  targetPaidSchedules.forEach((sch) => {
     const amt = Number(sch.amount);
     attributeInvoiceSales(sch.invoice, amt, saleDoanhSo, allStaff);
   });

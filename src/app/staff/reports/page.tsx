@@ -209,8 +209,21 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     endDate.setHours(23, 59, 59, 999);
   }
 
+  // Calculate monthly range relative to the selected filter's startDate
+  const monthlyStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1, 0, 0, 0, 0);
+  const monthlyEndDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const isMonthRange = startDate.getTime() === monthlyStartDate.getTime() && endDate.getTime() === monthlyEndDate.getTime();
+
   // Run all reports queries in parallel for peak performance
-  const [invoices, paidSchedules, unpaidSchedules, usageLogs, allStaff] = await Promise.all([
+  const [
+    invoices,
+    paidSchedules,
+    unpaidSchedules,
+    usageLogs,
+    allStaff,
+    monthlyInvoices,
+    monthlyPaidSchedules,
+  ] = await Promise.all([
     // 1. Fetch Invoices in range
     db.invoice.findMany({
       where: {
@@ -274,13 +287,47 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
     // 5. Fetch all staff members
     db.staff.findMany(),
+
+    // 6. Monthly Invoices for KPI leaderboard
+    isMonthRange
+      ? Promise.resolve([])
+      : db.invoice.findMany({
+          where: {
+            createdAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+          },
+          include: {
+            staff: true,
+            schedules: {
+              select: { amount: true },
+            },
+            items: true,
+          },
+        }),
+
+    // 7. Monthly Paid installments for KPI leaderboard
+    isMonthRange
+      ? Promise.resolve([])
+      : db.installmentSchedule.findMany({
+          where: {
+            status: "paid",
+            paidAt: { gte: monthlyStartDate, lte: monthlyEndDate },
+          },
+          include: {
+            invoice: {
+              include: {
+                staff: true,
+                items: true,
+              },
+            },
+          },
+        }),
   ]);
 
   let totalRevenue = 0;
   let totalBankFee = 0;
   const saleDoanhSo: Record<string, { staffName: string; totalSales: number; target: number }> = {};
 
-  // Process core invoices in range
+  // Process core invoices in range for general revenue stats
   invoices.forEach((inv) => {
     const finalAmt = Number(inv.finalAmount);
     const fee = Number(inv.bankFee);
@@ -298,15 +345,38 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       invRevenue = finalAmt;
     }
     totalRevenue += invRevenue;
+  });
+
+  // Add paid installments in range to revenue stats
+  paidSchedules.forEach((sch) => {
+    const amt = Number(sch.amount);
+    totalRevenue += amt;
+  });
+
+  // Determine which target datasets to use for monthly leaderboard calculation
+  const targetInvoices = isMonthRange ? invoices : monthlyInvoices;
+  const targetPaidSchedules = isMonthRange ? paidSchedules : monthlyPaidSchedules;
+
+  // Process monthly invoices and paid schedules for staff target/sales leaderboard
+  targetInvoices.forEach((inv) => {
+    const finalAmt = Number(inv.finalAmount);
+    let invRevenue = 0;
+    if (inv.paymentType === "installment") {
+      if (inv.installmentType === "counter") {
+        const totalDebt = inv.schedules.reduce((sum, sch) => sum + Number(sch.amount), 0);
+        invRevenue = Math.max(0, finalAmt - totalDebt); // down payment only
+      } else {
+        invRevenue = finalAmt;
+      }
+    } else {
+      invRevenue = finalAmt;
+    }
 
     attributeInvoiceSales(inv, invRevenue, saleDoanhSo, allStaff);
   });
 
-  // Add paid installments in range to revenue and staff sales
-  paidSchedules.forEach((sch) => {
+  targetPaidSchedules.forEach((sch) => {
     const amt = Number(sch.amount);
-    totalRevenue += amt;
-
     attributeInvoiceSales(sch.invoice, amt, saleDoanhSo, allStaff);
   });
 
