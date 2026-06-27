@@ -25,6 +25,7 @@ interface StaffSidebarProps {
   user: {
     fullName: string;
     dbRole?: string;
+    permissions?: string[];
   };
 }
 
@@ -75,17 +76,27 @@ export default function StaffSidebar({ user }: StaffSidebarProps) {
 
   const rawMenuItems = [
     { name: "Tổng quan", path: "/staff", icon: <LayoutDashboard size={20} /> },
-    { name: "Khách hàng", path: "/staff/customers", icon: <Users size={20} /> },
-    { name: "Lịch hẹn", path: "/staff/appointments", icon: <Calendar size={20} /> },
-    { name: "Dịch vụ", path: "/staff/services", icon: <Sparkles size={20} /> },
-    { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} /> },
-    { name: "Quản lý công nợ", path: "/staff/debts", icon: <Wallet size={20} /> },
-    { name: "Chương trình ưu đãi", path: "/staff/promotions", icon: <Tag size={20} /> },
-    { name: "Quản lý nhân viên", path: "/staff/users", icon: <UserCog size={20} />, adminOnly: true },
-    { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} />, adminOnly: true },
+    { name: "Khách hàng", path: "/staff/customers", icon: <Users size={20} />, requiredPermission: "customers:view" },
+    { name: "Lịch hẹn", path: "/staff/appointments", icon: <Calendar size={20} />, requiredPermission: "appointments:view" },
+    { name: "Dịch vụ", path: "/staff/services", icon: <Sparkles size={20} />, requiredPermission: "services:manage" },
+    { name: "Bán hàng", path: "/staff/sales", icon: <Receipt size={20} />, requiredPermission: "sales:create" },
+    { name: "Quản lý công nợ", path: "/staff/debts", icon: <Wallet size={20} />, requiredPermission: "debts:manage" },
+    { name: "Chương trình ưu đãi", path: "/staff/promotions", icon: <Tag size={20} />, requiredPermission: "promotions:manage" },
+    { name: "Quản lý nhân viên", path: "/staff/users", icon: <UserCog size={20} />, requiredPermission: "staff:manage" },
+    { name: "Báo cáo", path: "/staff/reports", icon: <BarChart3 size={20} />, requiredPermission: "reports:view" },
   ];
 
-  const menuItems = rawMenuItems.filter((item) => !item.adminOnly || user.dbRole === "admin");
+  const menuItems = rawMenuItems.filter((item) => {
+    // Admin có toàn quyền
+    if (user.dbRole === "admin") return true;
+
+    // Kiểm tra xem nhân viên có quyền cụ thể hay không
+    if (item.requiredPermission) {
+      return user.permissions?.includes(item.requiredPermission);
+    }
+
+    return true; // Quyền mặc định cho các mục cơ bản
+  });
 
   const handleLogout = async () => {
     try {

@@ -20,7 +20,13 @@ export default async function StaffLayout({
     redirect("/login?role=staff");
   }
 
-  let user = { id: "", fullName: "Nhân viên Spa", role: "staff", dbRole: "staff" };
+  let user: { id: string; fullName: string; role: string; dbRole: string; permissions?: string[] } = {
+    id: "",
+    fullName: "Nhân viên Spa",
+    role: "staff",
+    dbRole: "staff",
+    permissions: []
+  };
   try {
     const parsed = JSON.parse(sessionCookie.value);
     if (parsed.role !== "staff") {
@@ -30,7 +36,7 @@ export default async function StaffLayout({
     // Query DB to get up-to-date live role
     const dbStaff = await db.staff.findUnique({
       where: { id: parsed.id },
-      select: { role: true, fullName: true, username: true }
+      select: { role: true, fullName: true, username: true, permissions: true }
     });
 
     if (!dbStaff) {
@@ -42,7 +48,8 @@ export default async function StaffLayout({
       id: parsed.id,
       fullName: dbStaff.fullName,
       role: parsed.role,
-      dbRole: dbStaff.role
+      dbRole: dbStaff.role,
+      permissions: dbStaff.permissions
     };
   } catch (e) {
     redirect("/login?role=staff");

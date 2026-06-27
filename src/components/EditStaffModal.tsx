@@ -3,17 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/staff/users/page.module.css";
-import { UserPlus, X } from "lucide-react";
+import { Edit2, X } from "lucide-react";
 
-export default function AddStaffModal() {
+interface EditStaffModalProps {
+  staffId: string;
+  initialFullName: string;
+  initialUsername: string;
+  initialRole: string;
+  initialPermissions?: string[];
+  initialTarget: number | null;
+}
+
+export default function EditStaffModal({
+  staffId,
+  initialFullName,
+  initialUsername,
+  initialRole,
+  initialPermissions = [],
+  initialTarget,
+}: EditStaffModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("staff");
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [target, setTarget] = useState("");
+  const [fullName, setFullName] = useState(initialFullName);
+  const [role, setRole] = useState(initialRole);
+  const [permissions, setPermissions] = useState<string[]>(initialPermissions);
+  const [target, setTarget] = useState(initialTarget ? initialTarget.toLocaleString("vi-VN") : "");
+  const [password, setPassword] = useState(""); // Optional password reset
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,35 +46,34 @@ export default function AddStaffModal() {
     setError("");
     setLoading(true);
 
+    const payload: any = {
+      id: staffId,
+      fullName,
+      role,
+      permissions: role === "admin" ? [] : permissions,
+      target: target ? Number(target.replace(/\./g, "")) : null,
+    };
+
+    if (password.trim() !== "") {
+      payload.password = password;
+    }
+
     try {
       const response = await fetch("/api/staff", {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          fullName,
-          username,
-          password,
-          role,
-          permissions: role === "admin" ? [] : permissions,
-          target: target ? Number(target.replace(/\./g, "")) : null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Không thể thêm nhân viên mới");
+        throw new Error(data.error || "Không thể cập nhật thông tin nhân viên");
       }
 
-      // Reset form and close
-      setFullName("");
-      setUsername("");
       setPassword("");
-      setRole("staff");
-      setPermissions([]);
-      setTarget("");
       setIsOpen(false);
       
       // Refresh page data
@@ -73,16 +87,32 @@ export default function AddStaffModal() {
 
   return (
     <>
-      <button onClick={() => setIsOpen(true)} className={styles.searchBtn} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <UserPlus size={18} />
-        <span>Thêm nhân viên</span>
+      <button 
+        onClick={() => setIsOpen(true)} 
+        className={styles.targetBtn} 
+        style={{ 
+          display: "inline-flex", 
+          alignItems: "center", 
+          gap: "0.25rem", 
+          padding: "0.4rem 0.75rem", 
+          fontSize: "0.82rem",
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--border-color)",
+          color: "var(--accent-gold)",
+          borderRadius: "var(--radius-sm)",
+          fontWeight: 600,
+          marginRight: "0.5rem"
+        }}
+      >
+        <Edit2 size={12} />
+        <span>Sửa</span>
       </button>
 
       {isOpen && (
-        <div className={styles.modalOverlay}>
+        <div className={styles.modalOverlay} style={{ zIndex: 1100 }}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Tạo tài khoản nhân viên mới</h3>
+              <h3 className={styles.modalTitle}>Chỉnh sửa tài khoản nhân viên</h3>
               <X className={styles.modalClose} onClick={() => setIsOpen(false)} size={20} />
             </div>
 
@@ -91,11 +121,22 @@ export default function AddStaffModal() {
               
               <div className={styles.formGrid}>
                 <div className={`${styles.formGroup} ${styles.formFull}`}>
+                  <label className={styles.label}>Tên tài khoản (username) - Chỉ đọc</label>
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    value={initialUsername}
+                    disabled
+                    style={{ background: "rgba(0,0,0,0.05)", cursor: "not-allowed" }}
+                  />
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.formFull}`}>
                   <label className={styles.label}>Họ và Tên *</label>
                   <input
                     type="text"
                     className={styles.searchInput}
-                    placeholder="Ví dụ: Lễ tân Vy"
+                    placeholder="Họ tên nhân viên"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -104,27 +145,13 @@ export default function AddStaffModal() {
                 </div>
 
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Tên tài khoản (username) *</label>
-                  <input
-                    type="text"
-                    className={styles.searchInput}
-                    placeholder="Ví dụ: vy.staff"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Mật khẩu đăng nhập *</label>
+                  <label className={styles.label}>Mật khẩu mới (Để trống nếu giữ nguyên)</label>
                   <input
                     type="password"
                     className={styles.searchInput}
-                    placeholder="Nhập mật khẩu"
+                    placeholder="Đổi mật khẩu"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
                     disabled={loading}
                   />
                 </div>
@@ -143,7 +170,7 @@ export default function AddStaffModal() {
                   </select>
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={`${styles.formGroup} ${styles.formFull}`}>
                   <label className={styles.label}>Chỉ tiêu doanh số tháng (đ)</label>
                   <input
                     type="text"
@@ -195,12 +222,12 @@ export default function AddStaffModal() {
                 </div>
               )}
 
-              <div className={styles.formActions}>
+              <div className={styles.formActions} style={{ marginTop: "1.5rem" }}>
                 <button type="button" onClick={() => setIsOpen(false)} className={styles.cancelBtn} disabled={loading}>
                   Hủy
                 </button>
                 <button type="submit" className={styles.createBtn} disabled={loading}>
-                  {loading ? "Đang lưu..." : "Lưu tài khoản"}
+                  {loading ? "Đang lưu..." : "Cập nhật tài khoản"}
                 </button>
               </div>
             </form>

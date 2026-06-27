@@ -3,6 +3,7 @@ import styles from "./page.module.css";
 import AddStaffModal from "@/components/AddStaffModal";
 import DeleteStaffButton from "@/components/DeleteStaffButton";
 import EditStaffTargetButton from "@/components/EditStaffTargetButton";
+import EditStaffModal from "@/components/EditStaffModal";
 import { Search, ShieldAlert, User, ShieldCheck } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -128,7 +129,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
                 <th className={styles.th}>Vai trò</th>
                 <th className={styles.th}>Chỉ tiêu tháng</th>
                 <th className={styles.th}>Ngày tạo</th>
-                <th className={styles.th}>Mã định danh</th>
+                <th className={styles.th}>Quyền hạn truy cập</th>
                 <th className={styles.th} style={{ textAlign: "right" }}>Thao tác</th>
               </tr>
             </thead>
@@ -165,10 +166,52 @@ export default async function StaffPage({ searchParams }: PageProps) {
                     <td className={styles.td}>
                       {new Date(staff.createdAt).toLocaleDateString("vi-VN")}
                     </td>
-                    <td className={styles.td} style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
-                      {staff.id.substring(0, 8)}...
+                    <td className={styles.td}>
+                      {isAdmin ? (
+                        <span style={{ fontSize: "0.8rem", color: "var(--accent-gold)", fontWeight: 700 }}>
+                          Toàn quyền hệ thống
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", maxWidth: "240px" }}>
+                          {(!staff.permissions || staff.permissions.length === 0) ? (
+                            <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontStyle: "italic" }}>Chưa phân quyền</span>
+                          ) : (
+                            staff.permissions.map((p: string) => {
+                              const labelMap: Record<string, string> = {
+                                "customers:view": "Xem khách",
+                                "customers:edit": "Sửa khách & Liệu trình",
+                                "sales:create": "Bán hàng",
+                                "debts:manage": "Công nợ",
+                                "services:manage": "Dịch vụ",
+                                "promotions:manage": "Ưu đãi",
+                              };
+                              return (
+                                <span key={p} style={{ 
+                                  fontSize: "0.75rem", 
+                                  padding: "0.15rem 0.4rem", 
+                                  background: "rgba(223, 183, 108, 0.1)", 
+                                  color: "var(--accent-gold)", 
+                                  borderRadius: "4px",
+                                  border: "1px solid rgba(223, 183, 108, 0.15)",
+                                  fontWeight: 500
+                                }}>
+                                  {labelMap[p] || p}
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </td>
-                    <td className={styles.td} style={{ textAlign: "right" }}>
+                    <td className={styles.td} style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <EditStaffModal
+                        staffId={staff.id}
+                        initialFullName={staff.fullName}
+                        initialUsername={staff.username}
+                        initialRole={staff.role}
+                        initialPermissions={staff.permissions}
+                        initialTarget={staff.target ? Number(staff.target) : null}
+                      />
                       <DeleteStaffButton staffId={staff.id} staffName={staff.fullName} />
                     </td>
                   </tr>

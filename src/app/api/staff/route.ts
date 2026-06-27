@@ -32,6 +32,7 @@ export async function GET() {
         username: true,
         fullName: true,
         role: true,
+        permissions: true,
         target: true,
         createdAt: true,
       },
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { username, password, fullName, role = "staff", target } = body;
+    const { username, password, fullName, role = "staff", permissions = [], target } = body;
 
     if (!username || !password || !fullName) {
       return NextResponse.json({ error: "Vui lòng nhập đầy đủ thông tin nhân viên" }, { status: 400 });
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
         passwordHash,
         fullName: fullName.trim(),
         role: role.trim(),
+        permissions: Array.isArray(permissions) ? permissions : [],
         target: targetNum,
       },
       select: {
@@ -117,6 +119,7 @@ export async function POST(request: Request) {
         username: true,
         fullName: true,
         role: true,
+        permissions: true,
         target: true,
         createdAt: true,
       },
@@ -226,22 +229,31 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, target } = body;
+    const { id, fullName, role, permissions, target, password } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Thiếu ID nhân viên" }, { status: 400 });
     }
 
-    const targetNum = target !== undefined && target !== null && target !== "" ? Number(target) : null;
+    const updateData: any = {};
+    if (fullName !== undefined) updateData.fullName = fullName.trim();
+    if (role !== undefined) updateData.role = role.trim();
+    if (permissions !== undefined) updateData.permissions = Array.isArray(permissions) ? permissions : [];
+    if (target !== undefined) updateData.target = target !== null && target !== "" ? Number(target) : null;
+    
+    if (password !== undefined && password.trim() !== "") {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
+    }
 
     const updated = await db.staff.update({
       where: { id },
-      data: {
-        target: targetNum,
-      },
+      data: updateData,
       select: {
         id: true,
+        username: true,
         fullName: true,
+        role: true,
+        permissions: true,
         target: true,
       }
     });
@@ -249,7 +261,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(updated);
   } catch (error: any) {
     console.error("PUT Staff Error:", error);
-    return NextResponse.json({ error: "Không thể cập nhật chỉ tiêu nhân viên" }, { status: 500 });
+    return NextResponse.json({ error: "Không thể cập nhật thông tin nhân viên" }, { status: 500 });
   }
 }
 
