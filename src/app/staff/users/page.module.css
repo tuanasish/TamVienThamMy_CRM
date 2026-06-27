@@ -199,15 +199,18 @@
 }
 
 .formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.4rem !important;
 }
 
 .label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  display: block !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  margin-bottom: 0.25rem !important;
+  text-align: left !important;
 }
 
 .formActions {
