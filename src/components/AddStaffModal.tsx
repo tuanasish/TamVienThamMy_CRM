@@ -90,7 +90,7 @@ export default function AddStaffModal() {
               {error && <div style={{ color: "#dc3545", background: "rgba(220,53,69,0.1)", padding: "0.75rem", borderRadius: "4px", fontSize: "0.85rem", fontWeight: "600", marginBottom: "1.25rem" }}>{error}</div>}
               
               <div className={styles.formGrid}>
-                <div className={`${styles.formGroup} ${styles.formFull}`}>
+                <div className={`${styles.formGroup} ${styles.formFull}`} style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label}>Họ và Tên *</label>
                   <input
                     type="text"
@@ -103,7 +103,7 @@ export default function AddStaffModal() {
                   />
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={styles.formGroup} style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label}>Tên tài khoản (username) *</label>
                   <input
                     type="text"
@@ -116,7 +116,7 @@ export default function AddStaffModal() {
                   />
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={styles.formGroup} style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label}>Mật khẩu đăng nhập *</label>
                   <input
                     type="password"
@@ -129,7 +129,7 @@ export default function AddStaffModal() {
                   />
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={styles.formGroup} style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label}>Vai trò *</label>
                   <select
                     className={styles.searchInput}
@@ -143,7 +143,7 @@ export default function AddStaffModal() {
                   </select>
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={styles.formGroup} style={{ display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label}>Chỉ tiêu doanh số tháng (đ)</label>
                   <input
                     type="text"
@@ -160,7 +160,7 @@ export default function AddStaffModal() {
               </div>
 
               {role === "staff" && (
-                <div className={`${styles.formGroup} ${styles.formFull}`} style={{ marginTop: "1rem" }}>
+                <div className={`${styles.formGroup} ${styles.formFull}`} style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.35rem", alignItems: "stretch", width: "100%" }}>
                   <label className={styles.label} style={{ marginBottom: "0.5rem", display: "block", fontWeight: "bold" }}>
                     Quyền hạn chức năng *
                   </label>
