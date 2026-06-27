@@ -402,6 +402,25 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modalContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modalContent::-webkit-scrollbar-thumb {
+  background: rgba(197, 160, 89, 0.3);
+  border-radius: 4px;
+}
+
+.modalContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 160, 89, 0.5);
 }
 
 .modalHeader {
