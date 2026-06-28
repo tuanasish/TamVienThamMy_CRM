@@ -65,6 +65,8 @@ interface SelectedItem {
   useImmediately?: boolean;
   technicianName?: string;
   sessionNotes?: string;
+  immediateServiceId?: string;
+  immediateAmountDeducted?: string;
 }
 
 export default function CreateInvoiceForm({
@@ -348,9 +350,22 @@ export default function CreateInvoiceForm({
 
   const handleQtyChange = (id: string, type: string, qty: number) => {
     setSelectedItems(
-      selectedItems.map((item) =>
-        item.id === id && item.itemType === type ? { ...item, quantity: Math.max(qty, 1) } : item
-      )
+      selectedItems.map((item) => {
+        if (item.id === id && item.itemType === type) {
+          const newQty = Math.max(qty, 1);
+          if (item.itemType === "service") {
+            const s = services.find((sv) => sv.id === id);
+            const baseSessions = s?.sessions || 1;
+            return {
+              ...item,
+              quantity: newQty,
+              totalSessions: baseSessions * newQty
+            };
+          }
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
     );
   };
 
@@ -400,6 +415,22 @@ export default function CreateInvoiceForm({
     setSelectedItems(
       selectedItems.map((item) =>
         item.id === id ? { ...item, sessionNotes: notes } : item
+      )
+    );
+  };
+
+  const handleImmediateServiceChange = (id: string, svcId: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id ? { ...item, immediateServiceId: svcId } : item
+      )
+    );
+  };
+
+  const handleImmediateAmountChange = (id: string, amount: string) => {
+    setSelectedItems(
+      selectedItems.map((item) =>
+        item.id === id ? { ...item, immediateAmountDeducted: formatMoneyInput(amount) } : item
       )
     );
   };
@@ -477,6 +508,8 @@ export default function CreateInvoiceForm({
             useImmediately: itm.useImmediately || false,
             technicianName: itm.technicianName || "",
             sessionNotes: itm.sessionNotes || "",
+            immediateServiceId: itm.immediateServiceId || undefined,
+            immediateAmountDeducted: itm.immediateAmountDeducted ? Number(parseMoneyInput(itm.immediateAmountDeducted)) : undefined,
           })),
           appointmentId: appointmentId || undefined,
         }),
@@ -926,6 +959,108 @@ export default function CreateInvoiceForm({
                       />
                     </div>
                   </div>
+                  {/* IMMEDIATE CARD USE SUB-SECTION */}
+                  {item.itemType === "card" && (
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(45, 122, 96, 0.06) 0%, rgba(45, 122, 96, 0.02) 100%)",
+                      border: "1px solid rgba(45, 122, 96, 0.2)",
+                      borderLeft: "4px solid #2d7a60",
+                      borderRadius: "8px",
+                      padding: "0.85rem 1.15rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                      marginTop: "0.35rem",
+                      alignSelf: "stretch",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <input
+                          type="checkbox"
+                          id={`useImmediately-${item.id}`}
+                          checked={!!item.useImmediately}
+                          onChange={(e) => handleImmediateUseChange(item.id, e.target.checked)}
+                          style={{ width: "16px", height: "16px", accentColor: "#2d7a60", cursor: "pointer" }}
+                        />
+                        <label htmlFor={`useImmediately-${item.id}`} style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--accent-gold)", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <Sparkles size={16} style={{ color: "#34c759" }} />
+                          Thực hiện dịch vụ và trừ tiền từ thẻ ngay bây giờ
+                        </label>
+                      </div>
+
+                      {item.useImmediately && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)" }}>Dịch vụ thực hiện *</label>
+                            <select
+                              className={styles.select}
+                              value={item.immediateServiceId || ""}
+                              onChange={(e) => handleImmediateServiceChange(item.id, e.target.value)}
+                              required
+                              style={{ padding: "0.35rem 0.5rem", fontSize: "0.8rem", appearance: "auto" }}
+                            >
+                              <option value="">-- Chọn dịch vụ --</option>
+                              {services.filter(s => s.type === "service").map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name} ({s.price.toLocaleString("vi-VN")}đ)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)" }}>Số tiền trừ từ thẻ (đ) *</label>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              placeholder="Nhập số tiền..."
+                              value={item.immediateAmountDeducted || ""}
+                              onChange={(e) => handleImmediateAmountChange(item.id, e.target.value)}
+                              required
+                              style={{ padding: "0.35rem 0.5rem", fontSize: "0.8rem" }}
+                            />
+                          </div>
+
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                              Kỹ thuật viên thực hiện *
+                              {!item.technicianName && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem", color: "#ff9500", fontSize: "0.7rem", fontWeight: "normal", textTransform: "none", letterSpacing: "normal" }}>
+                                  <AlertCircle size={10} /> Chọn KTV
+                                </span>
+                              )}
+                            </label>
+                            <select
+                              className={styles.select}
+                              value={item.technicianName || ""}
+                              onChange={(e) => handleImmediateTechnicianChange(item.id, e.target.value)}
+                              required
+                              style={{ padding: "0.35rem 0.5rem", fontSize: "0.8rem", appearance: "auto" }}
+                            >
+                              <option value="">-- Chọn KTV --</option>
+                              {staff.map((st) => (
+                                <option key={st.id} value={st.fullName}>
+                                  {st.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className={styles.formGroup} style={{ margin: 0 }}>
+                            <label className={styles.label} style={{ fontSize: "0.75rem", marginBottom: "0.25rem", color: "var(--text-primary)" }}>Ghi chú tình trạng buổi làm đầu tiên</label>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              placeholder="Ghi chú buổi làm..."
+                              value={item.sessionNotes || ""}
+                              onChange={(e) => handleImmediateNotesChange(item.id, e.target.value)}
+                              style={{ padding: "0.35rem 0.5rem", fontSize: "0.8rem" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* IMMEDIATE TREATMENT USE SUB-SECTION */}
                   {item.itemType === "service" && (

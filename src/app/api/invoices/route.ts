@@ -200,14 +200,33 @@ export async function POST(request: Request) {
               select: { price: true, value: true },
             }).then((template) => {
               if (!template) throw new Error(`Không tìm thấy mẫu thẻ có ID ${item.itemId}`);
+              const isImmediate = !!item.useImmediately && !!item.immediateServiceId && !!item.immediateAmountDeducted;
+              const deductAmount = isImmediate ? Number(item.immediateAmountDeducted) : 0;
               return tx.customerCard.create({
                 data: {
                   customerId,
                   templateId: item.itemId,
                   originalPrice: template.price,
                   originalValue: template.value,
-                  currentBalance: template.value,
+                  currentBalance: Number(template.value) - deductAmount,
                 },
+              }).then(async (customerCard) => {
+                if (isImmediate) {
+                  await tx.usageLog.create({
+                    data: {
+                      customerId,
+                      serviceId: item.immediateServiceId,
+                      sourceType: "card",
+                      cardId: customerCard.id,
+                      sessionsDeducted: 0,
+                      amountDeducted: deductAmount,
+                      performedBy: item.technicianName || "Hệ thống",
+                      notes: item.sessionNotes ? `[Sử dụng ngay khi mua] ${item.sessionNotes}` : "[Sử dụng ngay khi mua]",
+                      staffId: item.staffId || staffId,
+                    }
+                  });
+                }
+                return customerCard;
               });
             })
           );
@@ -219,7 +238,7 @@ export async function POST(request: Request) {
             }).then((service) => {
               if (!service) throw new Error(`Không tìm thấy dịch vụ/sản phẩm có ID ${item.itemId}`);
               if (service.type === "service") {
-                const totalSessions = Number(item.totalSessions || itemQty || 1);
+                const totalSessions = Number(item.totalSessions ?? itemQty ?? 1);
                 const initUsedSessions = item.useImmediately ? 1 : 0;
                 return tx.customerTreatment.create({
                   data: {

@@ -182,22 +182,42 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       };
 
       // Helper function to create synced card
-      const createSyncedCard = async (templateId: string) => {
+      const createSyncedCard = async (itm: any) => {
         const template = await tx.cardTemplate.findUnique({
-          where: { id: templateId },
+          where: { id: itm.itemId },
           select: { price: true, value: true }
         });
         if (template) {
-          await tx.customerCard.create({
+          const isImmediate = !!itm.useToday && !!itm.immediateServiceId && !!itm.immediateAmountDeducted;
+          const deductAmount = isImmediate ? Number(itm.immediateAmountDeducted) : 0;
+
+          const customerCard = await tx.customerCard.create({
             data: {
               customerId: invoice.customerId,
-              templateId,
+              templateId: itm.itemId,
               originalPrice: template.price,
               originalValue: template.value,
-              currentBalance: template.value,
+              currentBalance: Number(template.value) - deductAmount,
               createdAt: invoice.createdAt, // Match original invoice date
             }
           });
+
+          if (isImmediate) {
+            await tx.usageLog.create({
+              data: {
+                customerId: invoice.customerId,
+                serviceId: itm.immediateServiceId,
+                sourceType: "card",
+                cardId: customerCard.id,
+                sessionsDeducted: 0,
+                amountDeducted: deductAmount,
+                performedBy: itm.technicianName || "Hệ thống",
+                notes: itm.sessionNotes ? `[Sử dụng ngay khi mua] ${itm.sessionNotes}` : "[Sử dụng ngay khi mua]",
+                staffId: itm.technicianId || staffId,
+                usedAt: invoice.createdAt,
+              }
+            });
+          }
         }
       };
 
@@ -257,7 +277,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         if (itm.itemType === "service" || itm.itemType === "product") {
           await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount, itm.useToday, itm.technicianId);
         } else if (itm.itemType === "card") {
-          await createSyncedCard(itm.itemId);
+          await createSyncedCard(itm);
         }
       }
 
@@ -281,7 +301,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           if (itm.itemType === "service" || itm.itemType === "product") {
             await createSyncedTreatment(itm.itemId, itemPrice, itemQty, itemDiscount, itm.useToday, itm.technicianId);
           } else if (itm.itemType === "card") {
-            await createSyncedCard(itm.itemId);
+            await createSyncedCard(itm);
           }
         } 
         // Scenario 5.2: Same itemId or changed price/quantity/discount/useToday/technicianId
