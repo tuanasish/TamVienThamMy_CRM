@@ -10,6 +10,7 @@ interface ServiceProp {
   name: string;
   price: number;
   type: string;
+  sessions?: number;
 }
 
 interface StaffProp {
@@ -123,7 +124,7 @@ export default function ExchangeServiceModal({
         price: s.price,
         quantity: 1,
         discount: "0",
-        totalSessions: s.type === "service" ? 10 : undefined, // default sessions for service
+        totalSessions: s.type === "service" ? (s.sessions || 1) : undefined,
         saleStaffIds: cashierId ? [cashierId] : [],
       };
 

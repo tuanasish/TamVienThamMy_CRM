@@ -141,14 +141,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const createSyncedTreatment = async (serviceId: string, price: number, qty: number, disc: number, useToday?: boolean, technicianId?: string | null) => {
         const service = await tx.service.findUnique({
           where: { id: serviceId },
-          select: { type: true }
+          select: { type: true, tags: true }
         });
         if (service && service.type === "service") {
+          const sessions = service.tags && typeof service.tags === "object" && service.tags !== null && "sessions" in service.tags ? Number((service.tags as any).sessions) : 1;
+          const totalSessions = qty * sessions;
           const treatment = await tx.customerTreatment.create({
             data: {
               customerId: invoice.customerId,
               serviceId,
-              totalSessions: qty,
+              totalSessions,
               usedSessions: useToday ? 1 : 0,
               pricePaid: Math.max((price * qty) - disc, 0),
               createdAt: invoice.createdAt, // Match original invoice date
@@ -294,10 +296,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               }
             });
             if (treatment) {
+              const service = await tx.service.findUnique({
+                where: { id: itm.itemId },
+                select: { tags: true }
+              });
+              const sessions = service?.tags && typeof service.tags === "object" && service.tags !== null && "sessions" in service.tags ? Number((service.tags as any).sessions) : 1;
+              const totalSessions = itemQty * sessions;
+
               await tx.customerTreatment.update({
                 where: { id: treatment.id },
                 data: {
-                  totalSessions: itemQty,
+                  totalSessions,
                   pricePaid: Math.max((itemPrice * itemQty) - itemDiscount, 0),
                   usedSessions: itm.useToday ? 1 : 0,
                 }

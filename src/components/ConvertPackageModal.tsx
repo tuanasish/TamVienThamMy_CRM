@@ -27,6 +27,7 @@ interface ServiceProp {
   name: string;
   price: number;
   type: string;
+  sessions?: number;
 }
 
 interface CardTemplateProp {
@@ -231,7 +232,7 @@ export default function ConvertPackageModal({
           price: s.price,
           quantity: 1,
           discount: "0",
-          totalSessions: s.type === "service" ? 10 : undefined, // default sessions
+          totalSessions: s.type === "service" ? (s.sessions || 1) : undefined,
           saleStaffIds: cashierId ? [cashierId] : [],
         };
       }
@@ -296,8 +297,8 @@ export default function ConvertPackageModal({
       return;
     }
 
-    if (finalAmount > totalRevokeValue) {
-      setError("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc nhỏ hơn giá trị quy đổi của gói cũ.");
+    if (finalAmount < totalRevokeValue) {
+      setError("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc lớn hơn giá trị quy đổi của gói cũ.");
       setLoading(false);
       return;
     }
@@ -860,9 +861,9 @@ export default function ConvertPackageModal({
                     <strong style={{ fontSize: "1.2rem" }}>{formatVND(remainderToPay)}</strong>
                   </div>
                   
-                  {remainderToPay > 0 && (
+                  {selectedItems.length > 0 && finalAmount < totalRevokeValue && (
                     <div style={{ color: "#dc3545", background: "rgba(220, 53, 69, 0.05)", padding: "0.5rem 0.75rem", borderRadius: "4px", fontSize: "0.8rem", marginTop: "0.5rem", fontWeight: 600, border: "1px solid rgba(220, 53, 69, 0.15)" }}>
-                      ⚠️ Giá trị dịch vụ mới lớn hơn gói cũ. Chỉ được đổi bằng hoặc nhỏ hơn.
+                      ⚠️ Giá trị dịch vụ mới nhỏ hơn gói cũ. Chỉ được đổi bằng hoặc lớn hơn.
                     </div>
                   )}
                 </div>
@@ -1045,10 +1046,10 @@ export default function ConvertPackageModal({
                 <button 
                   type="submit" 
                   className={styles.createBtn} 
-                  disabled={loading || remainderToPay > 0} 
+                  disabled={loading || finalAmount < totalRevokeValue} 
                   style={{ 
-                    background: remainderToPay > 0 ? "var(--border-color)" : "var(--grad-premium)", 
-                    cursor: remainderToPay > 0 ? "not-allowed" : "pointer" 
+                    background: finalAmount < totalRevokeValue ? "var(--border-color)" : "var(--grad-premium)", 
+                    cursor: finalAmount < totalRevokeValue ? "not-allowed" : "pointer" 
                   }}
                 >
                   {loading ? "Đang xử lý..." : "Xác nhận chuyển đổi"}

@@ -75,8 +75,8 @@ export async function POST(request: Request) {
       }
 
       const finalAmtCheck = Number(finalAmount);
-      if (finalAmtCheck > calculatedRevokeValue) {
-        throw new Error("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc thấp hơn giá trị quy đổi của gói cũ.");
+      if (finalAmtCheck < calculatedRevokeValue) {
+        throw new Error("Chỉ được phép chuyển đổi sang dịch vụ mới có tổng giá trị bằng hoặc cao hơn giá trị quy đổi của gói cũ.");
       }
 
       // 2. Revoke and log selected CustomerCards
